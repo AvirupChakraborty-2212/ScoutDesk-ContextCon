@@ -87,16 +87,20 @@ async def run_runway_watch(
     """Run cash-out risk analysis across portfolio companies."""
     if run_id not in bus._queues:
         bus.create_run(run_id)
-    await bus.emit(
-        Event(
-            run_id=run_id,
-            ts=_now(),
-            agent=_AGENT,
-            company_id=None,
-            kind="start",
-            message=f"Runway Watch starting across {len(portfolio_domains)} portfolio companies",
+    if run_id not in bus._queues:
+        bus.create_run(run_id)
+
+    try:
+        await bus.emit(
+            Event(
+                run_id=run_id,
+                ts=_now(),
+                agent=_AGENT,
+                company_id=None,
+                kind="start",
+                message=f"Runway Watch starting across {len(portfolio_domains)} portfolio companies",
+            )
         )
-    )
 
     runway_cfg = thesis.get("runway", {})
     cost_map: dict[str, float] = runway_cfg.get(
@@ -312,3 +316,8 @@ async def run_runway_watch(
     except Exception:
         pass
     return reports
+    finally:
+        try:
+            bus.finish(run_id)
+        except Exception:
+            pass
