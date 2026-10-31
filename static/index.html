@@ -1,895 +1,1139 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scout Desk — Autonomous VC Investment Committee</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #090b10;
-      --card-bg: #121620;
-      --card-border: #1e2638;
-      --text-main: #f0f4fc;
-      --text-muted: #8b9bb4;
-      --accent: #3b82f6;
-      --accent-glow: rgba(59, 130, 246, 0.15);
-      --green: #10b981;
-      --green-glow: rgba(16, 185, 129, 0.15);
-      --yellow: #f59e0b;
-      --yellow-glow: rgba(245, 158, 11, 0.15);
-      --red: #ef4444;
-      --red-glow: rgba(239, 68, 68, 0.15);
-      --purple: #8b5cf6;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scout Desk — Autonomous VC Analyst</title>
+<style>
+/* ─── Reset & Base ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0d1117;
+  --surface:   #161b22;
+  --surface2:  #21262d;
+  --surface3:  #30363d;
+  --border:    #30363d;
+  --text:      #e6edf3;
+  --muted:     #8b949e;
+  --accent:    #388bfd;
+  --accent2:   #1f6feb;
+  --green:     #3fb950;
+  --yellow:    #d29922;
+  --orange:    #db6d28;
+  --red:       #f85149;
+  --purple:    #bc8cff;
+  --back-col:  #3fb950;
+  --watch-col: #d29922;
+  --pass-col:  #f85149;
+  --hr-col:    #bc8cff;
+  --font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
+}
+html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text); font-size: 13px; line-height: 1.5; }
+a { color: var(--accent); text-decoration: none; }
+button { cursor: pointer; border: none; outline: none; }
+textarea { resize: vertical; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--bg);
-      color: var(--text-main);
-      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow-x: hidden;
-    }
+/* ─── Layout ─── */
+#app { display: grid; grid-template-columns: 280px 1fr 360px; grid-template-rows: 48px 1fr;
+  height: 100vh; gap: 0; }
 
-    header {
-      background: rgba(18, 22, 32, 0.8);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--card-border);
-      padding: 14px 28px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
+/* ─── Header ─── */
+#header { grid-column: 1/-1; display: flex; align-items: center; gap: 12px;
+  padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+#header h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+#header h1 span { color: var(--accent); }
+.header-badge { font-size: 10px; padding: 2px 7px; border-radius: 20px;
+  background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+.spacer { flex: 1; }
+#health-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface3); }
+#health-dot.ok { background: var(--green); }
+#health-dot.error { background: var(--red); }
+#health-label { font-size: 11px; color: var(--muted); }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .brand-logo {
-      width: 28px;
-      height: 28px;
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      color: white;
-      font-size: 14px;
-    }
-    .brand h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
-    .badge {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      padding: 3px 8px;
-      border-radius: 6px;
-      letter-spacing: 0.5px;
-    }
-    .badge-theme { background: rgba(59, 130, 246, 0.12); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+/* ─── Left Panel ─── */
+#left { background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden; }
+.panel-section { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
+.panel-section:last-child { border-bottom: none; flex: 1; overflow-y: auto; }
+.section-label { font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--muted); margin-bottom: 8px; }
 
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .meter-box {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--card-border);
-      padding: 6px 14px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-    }
-    .meter-bar {
-      width: 80px;
-      height: 6px;
-      background: #1e2638;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .meter-fill {
-      height: 100%;
-      width: 20%;
-      background: var(--accent);
-      transition: width 0.3s ease;
-    }
+/* Thesis selector */
+#thesis-select { width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); padding: 6px 8px; font-size: 12px; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b949e' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; padding-right: 26px; }
+#thesis-select:focus { border-color: var(--accent); outline: none; }
 
-    /* Main Grid Layout */
-    .app-layout {
-      display: grid;
-      grid-template-columns: 320px 1fr 480px;
-      flex: 1;
-      height: calc(100vh - 65px);
-      overflow: hidden;
-    }
+/* Request input */
+#request-input { width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); padding: 8px; font-size: 12px; min-height: 72px;
+  font-family: inherit; }
+#request-input:focus { border-color: var(--accent); outline: none; }
 
-    /* Left Sidebar */
-    .sidebar {
-      background: #0d1017;
-      border-right: 1px solid var(--card-border);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      overflow-y: auto;
-    }
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .form-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    select, input, textarea {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      color: var(--text-main);
-      padding: 10px 12px;
-      border-radius: 8px;
-      font-family: inherit;
-      font-size: 13px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    select:focus, input:focus, textarea:focus {
-      border-color: var(--accent);
-    }
-    textarea { resize: vertical; min-height: 80px; }
+/* Backtest row */
+.field-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.field-row label { font-size: 11px; color: var(--muted); white-space: nowrap; width: 60px; }
+.field-row input, .field-row select { flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); padding: 5px 7px; font-size: 11px; }
+.field-row input:focus, .field-row select:focus { border-color: var(--accent); outline: none; }
 
-    .firewall-toggle-box {
-      background: rgba(139, 92, 246, 0.08);
-      border: 1px solid rgba(139, 92, 246, 0.25);
-      padding: 12px;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .firewall-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: #c4b5fd;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+/* Buttons */
+.btn { display: flex; align-items: center; justify-content: center; gap-6px; gap: 6px;
+  padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; transition: opacity .15s; }
+.btn:hover { opacity: 0.85; }
+.btn:active { opacity: 0.7; }
+.btn-primary { background: var(--accent2); color: #fff; width: 100%; }
+.btn-secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text); }
+.btn-sm { padding: 4px 10px; font-size: 11px; border-radius: 5px; }
+.btn-danger { background: #3d1a1a; border: 1px solid var(--red); color: var(--red); }
+.btn-row { display: flex; gap: 6px; margin-top: 8px; }
 
-    .btn {
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s ease;
-    }
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-    }
-    .btn-primary:hover { background: #2563eb; }
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--card-border);
-      color: var(--text-main);
-    }
-    .btn-secondary:hover { background: rgba(255, 255, 255, 0.08); }
+/* Credit meter */
+#credit-bar-wrap { margin-top: 6px; background: var(--surface2); border-radius: 4px; height: 6px;
+  overflow: hidden; border: 1px solid var(--border); }
+#credit-bar { height: 100%; width: 0%; background: var(--green); transition: width .4s, background .4s; border-radius: 3px; }
+#credit-bar.warn { background: var(--yellow); }
+#credit-bar.danger { background: var(--red); }
+#credit-label { font-size: 10px; color: var(--muted); margin-top: 4px; }
 
-    /* Middle Live Lanes */
-    .middle-lanes {
-      background: var(--bg);
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid var(--card-border);
-      overflow: hidden;
-    }
-    .lanes-header {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--card-border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #0d1017;
-    }
-    .lanes-title { font-size: 14px; font-weight: 700; }
-    .firewall-counter {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      background: rgba(239, 68, 68, 0.12);
-      color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      padding: 4px 10px;
-      border-radius: 6px;
-    }
+/* Companies input */
+#companies-input { width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); padding: 7px 8px; font-size: 11px; min-height: 52px;
+  font-family: var(--font-mono); }
 
-    .lanes-feed {
-      flex: 1;
-      padding: 16px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-    }
-    .event-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      padding: 10px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      animation: fadeIn 0.2s ease;
-    }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-    .event-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .event-agent {
-      font-weight: 700;
-      text-transform: uppercase;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-    }
-    .agent-company { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-    .agent-founder { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-    .agent-signals { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-    .agent-scorer { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; }
-    .agent-skeptic { background: rgba(239, 68, 68, 0.15); color: #f87171; }
-    .agent-verifier { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
-    .agent-ic { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
-    .agent-runway { background: rgba(249, 115, 22, 0.15); color: #fb923c; }
+/* ─── Middle Panel (Trace) ─── */
+#middle { display: flex; flex-direction: column; overflow: hidden; }
+#trace-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-bottom: 1px solid var(--border); background: var(--surface); }
+#trace-header h2 { font-size: 12px; font-weight: 600; color: var(--text); }
+#firewall-badge { display: none; font-size: 10px; padding: 2px 8px; border-radius: 20px;
+  background: #1a1a3a; border: 1px solid var(--purple); color: var(--purple); }
+#trace-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+#trace-empty { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; color: var(--muted); gap: 8px; }
+#trace-empty svg { opacity: 0.25; }
+#trace-empty p { font-size: 12px; }
 
-    /* Right Panel Tabs */
-    .right-panel {
-      background: #0d1017;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .tabs-header {
-      display: flex;
-      border-bottom: 1px solid var(--card-border);
-      background: var(--card-bg);
-    }
-    .tab-btn {
-      flex: 1;
-      padding: 14px 10px;
-      text-align: center;
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-weight: 600;
-      font-size: 13px;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
-    }
-    .tab-btn.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-      background: rgba(59, 130, 246, 0.05);
-    }
+/* Swimlane */
+.swimlane { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.swimlane-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--surface2); border-bottom: 1px solid var(--border); cursor: pointer;
+  user-select: none; }
+.swimlane-header:hover { background: var(--surface3); }
+.swimlane-name { font-size: 12px; font-weight: 600; flex: 1; }
+.swimlane-status { font-size: 10px; padding: 2px 7px; border-radius: 20px; border: 1px solid; }
+.swimlane-status.running { border-color: var(--accent); color: var(--accent); animation: pulse 1.5s infinite; }
+.swimlane-status.done { border-color: var(--green); color: var(--green); }
+.swimlane-status.error { border-color: var(--red); color: var(--red); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+.swimlane-events { padding: 6px 0; max-height: 280px; overflow-y: auto; }
+.event-row { display: flex; align-items: flex-start; gap: 8px; padding: 4px 12px;
+  font-size: 11px; transition: background .1s; }
+.event-row:hover { background: var(--surface2); }
+.event-ts { color: var(--muted); font-family: var(--font-mono); white-space: nowrap; flex-shrink: 0; font-size: 10px; margin-top: 1px; }
+.event-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px;
+  border-radius: 3px; text-transform: uppercase; flex-shrink: 0; margin-top: 2px; }
+.event-badge.start    { background:#163356; color:var(--accent); }
+.event-badge.call     { background:#1e2d1e; color:var(--green); }
+.event-badge.fact     { background:#2d2816; color:var(--yellow); }
+.event-badge.firewall { background:#1a1a3a; color:var(--purple); }
+.event-badge.finding  { background:#1e2d1e; color:var(--green); }
+.event-badge.challenge{ background:#3a1e1e; color:var(--red); }
+.event-badge.verify   { background:#2d1a0a; color:var(--orange); }
+.event-badge.verdict  { background:#163356; color:var(--accent); }
+.event-badge.error    { background:#3d1a1a; color:var(--red); }
+.event-badge.done     { background:#1a3a1a; color:var(--green); }
+.event-badge.credits  { background:#2d2816; color:var(--yellow); }
+.event-badge.runway   { background:#2a1a3a; color:var(--purple); }
+.event-badge.backtest { background:#163356; color:var(--accent); }
+.event-msg { color: var(--text); line-height: 1.4; }
 
-    .tab-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: none;
-    }
-    .tab-content.active { display: block; }
+/* Global events */
+.global-event { display: flex; align-items: flex-start; gap: 8px; padding: 5px 10px;
+  border-radius: 6px; font-size: 11px; background: var(--surface); border: 1px solid var(--border); }
 
-    /* Verdict Card */
-    .verdict-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 18px;
-      margin-bottom: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .verdict-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .company-name { font-size: 16px; font-weight: 700; }
-    .decision-badge {
-      font-weight: 700;
-      font-size: 12px;
-      padding: 4px 10px;
-      border-radius: 6px;
-      text-transform: uppercase;
-    }
-    .decision-back { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .decision-watch { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .decision-pass { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-    .decision-human_review { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
+/* ─── Right Panel ─── */
+#right { background: var(--surface); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden; }
+.right-tabs { display: flex; border-bottom: 1px solid var(--border); }
+.right-tab { flex: 1; padding: 10px 8px; font-size: 11px; font-weight: 600; text-align: center;
+  background: none; color: var(--muted); border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s; }
+.right-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.right-tab:hover:not(.active) { color: var(--text); }
+.tab-panel { display: none; flex: 1; overflow-y: auto; padding: 12px; flex-direction: column; gap: 10px; }
+.tab-panel.active { display: flex; }
 
-    .score-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .score-total { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-    .score-parts {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .part-chip {
-      background: rgba(255, 255, 255, 0.04);
-      padding: 3px 8px;
-      border-radius: 4px;
-    }
+/* Verdict card */
+.verdict-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; cursor: pointer; transition: border-color .15s; }
+.verdict-card:hover { border-color: var(--surface3); }
+.verdict-card.selected { border-color: var(--accent); }
+.verdict-card-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  border-bottom: 1px solid var(--border); }
+.verdict-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; }
+.verdict-badge.back        { background: #1a3a1a; color: var(--back-col); border: 1px solid var(--back-col); }
+.verdict-badge.watch       { background: #3a2e10; color: var(--watch-col); border: 1px solid var(--watch-col); }
+.verdict-badge.pass        { background: #3d1a1a; color: var(--pass-col); border: 1px solid var(--pass-col); }
+.verdict-badge.human_review{ background: #2a1a3a; color: var(--hr-col); border: 1px solid var(--hr-col); }
+.verdict-name { font-size: 13px; font-weight: 700; flex: 1; }
+.verdict-score-wrap { font-size: 11px; color: var(--muted); }
+.verdict-score-num { font-size: 14px; font-weight: 700; color: var(--text); }
+.verdict-body { padding: 10px 12px; }
+.score-bars { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.score-bar-row { display: flex; align-items: center; gap: 8px; }
+.score-bar-label { width: 72px; font-size: 10px; color: var(--muted); text-align: right; }
+.score-bar-track { flex: 1; height: 4px; background: var(--surface3); border-radius: 2px; }
+.score-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+.score-bar-val { width: 30px; font-size: 10px; color: var(--muted); font-family: var(--font-mono); text-align: right; }
+.confidence-row { font-size: 10px; color: var(--muted); margin-top: 6px; }
+.flags-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.flag-chip { font-size: 9px; padding: 1px 6px; border-radius: 3px; background: #3a1e1e;
+  color: var(--orange); border: 1px solid #5a2e0a; }
+.rationale-text { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.5;
+  font-style: italic; border-top: 1px solid var(--border); padding-top: 8px; }
 
-    .check-size-box {
-      background: rgba(16, 185, 129, 0.08);
-      border: 1px solid rgba(16, 185, 129, 0.25);
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #34d399;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+/* Memo panel */
+#memo-panel { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 100;
+  display: none; align-items: center; justify-content: center; }
+#memo-panel.open { display: flex; }
+#memo-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  width: min(760px, 95vw); max-height: 90vh; display: flex; flex-direction: column; }
+#memo-box-header { display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+  border-bottom: 1px solid var(--border); }
+#memo-box-title { font-size: 14px; font-weight: 700; flex: 1; }
+#memo-close { background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+  width: 28px; height: 28px; border-radius: 50%; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+#memo-close:hover { color: var(--text); }
+#memo-content { padding: 18px; overflow-y: auto; flex: 1; }
+.memo-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.6px; color: var(--muted); margin: 14px 0 6px; }
+.memo-section-title:first-child { margin-top: 0; }
+.memo-sentence { margin-bottom: 6px; font-size: 12px; line-height: 1.6; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+.fact-chip { display: inline-flex; align-items: center; font-size: 9px; font-weight: 700;
+  padding: 1px 5px; border-radius: 3px; background: #162032; border: 1px solid var(--accent2);
+  color: var(--accent); cursor: pointer; font-family: var(--font-mono);
+  position: relative; }
+.fact-chip:hover { background: #1f3050; }
 
-    .rationale-text {
-      font-size: 13px;
-      line-height: 1.5;
-      color: #cbd5e1;
-      background: rgba(0, 0, 0, 0.2);
-      padding: 10px 12px;
-      border-radius: 6px;
-      border-left: 3px solid var(--accent);
-    }
+/* Fact popover */
+.fact-popover { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; width: 280px; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  display: none; }
+.fact-chip:hover .fact-popover { display: block; }
+.fact-popover-key { font-size: 10px; font-weight: 700; color: var(--accent); margin-bottom: 4px; font-family: var(--font-mono); }
+.fact-popover-val { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.fact-popover-meta { font-size: 10px; color: var(--muted); line-height: 1.5; }
+.fact-popover-raw { font-size: 10px; color: var(--muted); background: var(--surface2);
+  border-radius: 4px; padding: 5px 7px; margin-top: 6px; font-family: var(--font-mono);
+  max-height: 60px; overflow-y: auto; white-space: pre-wrap; }
+.memo-removed { font-size: 10px; color: var(--red); font-style: italic; padding: 4px 8px;
+  background: #2a0a0a; border-radius: 4px; margin-top: 4px; }
 
-    /* Citation chips */
-    .citation-chip {
-      background: rgba(59, 130, 246, 0.15);
-      color: #93c5fd;
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-      font-family: 'JetBrains Mono', monospace;
-    }
-    .citation-chip:hover {
-      background: var(--accent);
-      color: white;
-    }
+/* Runway tab */
+.runway-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; }
+.runway-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.runway-level { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; }
+.runway-level.alert   { background: #3a1a1a; color: var(--red);    border: 1px solid var(--red); }
+.runway-level.watch   { background: #3a2a10; color: var(--yellow); border: 1px solid var(--yellow); }
+.runway-level.ok      { background: #1a3a1a; color: var(--green);  border: 1px solid var(--green); }
+.runway-level.unknown { background: var(--surface3); color: var(--muted); border: 1px solid var(--border); }
+.runway-months { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.runway-signals { margin-top: 8px; }
+.runway-signal-item { font-size: 11px; color: var(--muted); padding: 2px 0;
+  padding-left: 12px; position: relative; }
+.runway-signal-item::before { content: '•'; position: absolute; left: 0; color: var(--yellow); }
+.runway-assumptions { margin-top: 8px; padding: 8px; background: var(--surface);
+  border-radius: 5px; border: 1px solid var(--border); }
+.runway-assumption { font-size: 10px; color: var(--muted); font-family: var(--font-mono); }
+.runway-proxy-label { font-size: 9px; padding: 2px 6px; border-radius: 3px;
+  background: #2a1a3a; color: var(--purple); border: 1px solid var(--purple);
+  display: inline-block; margin-bottom: 6px; }
 
-    /* Popover Modal */
-    #factModal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(4px);
-      z-index: 999;
-      align-items: center;
-      justify-content: center;
-    }
-    .modal-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      width: 520px;
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    }
-    .modal-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--card-border);
-      padding-bottom: 12px;
-    }
-    .modal-title { font-size: 15px; font-weight: 700; }
-    .close-btn { cursor: pointer; background: none; border: none; color: var(--text-muted); font-size: 18px; }
-    .raw-snippet {
-      background: #090b10;
-      border: 1px solid var(--card-border);
-      border-radius: 6px;
-      padding: 12px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      max-height: 200px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      color: #94a3b8;
-    }
+/* Backtest tab */
+.backtest-scorecard { background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+.backtest-meta { font-size: 10px; color: var(--muted); margin-bottom: 12px; }
+.bt-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.bt-metric { background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px; text-align: center; }
+.bt-metric-val { font-size: 22px; font-weight: 700; }
+.bt-metric-val.good { color: var(--green); }
+.bt-metric-val.bad  { color: var(--red); }
+.bt-metric-val.neutral { color: var(--text); }
+.bt-metric-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.bt-firewall { font-size: 11px; color: var(--purple); margin-top: 8px; }
+.bt-case-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.bt-case-table th { font-size: 10px; color: var(--muted); text-align: left; padding: 5px 8px;
+  border-bottom: 1px solid var(--border); }
+.bt-case-table td { padding: 6px 8px; border-bottom: 1px solid var(--surface3); }
+.bt-case-table tr:last-child td { border-bottom: none; }
+.bt-outcome-yes { color: var(--green); font-weight: 700; }
+.bt-outcome-no  { color: var(--red); }
+.bt-outcome-unk { color: var(--muted); }
 
-    /* Table styles for Runway & Backtest */
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-    .data-table th, .data-table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--card-border);
-      text-align: left;
-    }
-    .data-table th {
-      color: var(--text-muted);
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 11px;
-    }
+/* Empty states */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 32px; color: var(--muted); text-align: center; }
+.empty-state p { font-size: 12px; }
 
-    .scorecard-banner {
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
-      border: 1px solid rgba(59, 130, 246, 0.25);
-      border-radius: 10px;
-      padding: 16px;
-      margin-bottom: 16px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      text-align: center;
-    }
-    .scorecard-item h3 { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-    .scorecard-item p { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
-  </style>
+/* Runway trigger */
+.runway-trigger-row { display: flex; gap: 6px; margin-bottom: 10px; }
+.runway-domains-input { flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); padding: 6px 8px; font-size: 11px;
+  font-family: var(--font-mono); }
+
+/* Backtest trigger */
+.bt-trigger-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
+.bt-trigger-row label { font-size: 10px; color: var(--muted); }
+.bt-trigger-row input { background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); padding: 5px 7px; font-size: 11px; width: 110px; }
+
+/* Spinner */
+.spinner { width: 14px; height: 14px; border: 2px solid var(--surface3);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast */
+#toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 16px; font-size: 12px; color: var(--text); z-index: 300;
+  opacity: 0; transition: opacity .3s; pointer-events: none; }
+#toast.show { opacity: 1; }
+</style>
 </head>
 <body>
+<div id="app">
 
-  <header>
-    <div class="brand">
-      <div class="brand-logo">S</div>
-      <h1>Scout Desk</h1>
-      <span class="badge badge-theme">ContextCon 03 · Theme: Investing</span>
-    </div>
-    <div class="header-right">
-      <div class="meter-box">
-        <span>Credits</span>
-        <div class="meter-bar"><div class="meter-fill" id="creditFill"></div></div>
-        <span id="creditText">0 / 150</span>
-      </div>
-      <div class="meter-box">
-        <span style="color: #10b981;">●</span>
-        <span id="statusText">System Ready</span>
-      </div>
-    </div>
+  <!-- ─── Header ─── -->
+  <header id="header">
+    <h1>Scout <span>Desk</span></h1>
+    <span class="header-badge">ContextCon 03 · Investing</span>
+    <span class="header-badge" id="offline-badge" style="display:none;border-color:var(--yellow);color:var(--yellow)">OFFLINE</span>
+    <div class="spacer"></div>
+    <div id="health-dot" title="Health check"></div>
+    <span id="health-label">Checking…</span>
+    <button class="btn btn-secondary btn-sm" onclick="replayLastRun()">Replay last run</button>
   </header>
 
-  <div class="app-layout">
-    <!-- Left Sidebar: Controls -->
-    <div class="sidebar">
-      <div class="form-group">
-        <label class="form-label">Investment Thesis</label>
-        <select id="thesisSelect">
-          <option value="preseed_india">Pre-seed/seed India B2B (Operator Founders)</option>
-          <option value="us_ai_seed">US AI/ML Seed (Technical Infrastructure)</option>
-        </select>
-      </div>
+  <!-- ─── Left Panel ─── -->
+  <aside id="left">
+    <div class="panel-section">
+      <div class="section-label">Thesis</div>
+      <select id="thesis-select" onchange="onThesisChange()">
+        <option value="preseed_india">Pre-seed India B2B</option>
+        <option value="us_ai_seed">US AI Seed</option>
+      </select>
+    </div>
 
-      <div class="form-group">
-        <label class="form-label">Target Companies (Optional)</label>
-        <textarea id="targetCompanies" placeholder="Leave empty for autonomous Crustdata graph sourcing, or enter domains like:&#10;composio.dev&#10;sarvam.ai"></textarea>
+    <div class="panel-section">
+      <div class="section-label">Request</div>
+      <textarea id="request-input" placeholder="e.g. Seed-stage Indian fintech infra companies with operator founders…"></textarea>
+      <div class="field-row" style="margin-top:8px">
+        <label>Companies</label>
       </div>
+      <textarea id="companies-input" placeholder="One domain per line (optional)&#10;e.g. sarvam.ai&#10;composio.dev"></textarea>
+    </div>
 
-      <div class="firewall-toggle-box">
-        <div class="firewall-title">
-          <span>🛡️ Time Firewall (Backtest Mode)</span>
-        </div>
-        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">
-          Test calls as of a past date. All subsequent facts are cryptographically hidden from agents.
-        </p>
-        <input type="date" id="asOfDate" value="2024-01-01">
+    <div class="panel-section">
+      <div class="section-label">Backtest Mode (optional)</div>
+      <div class="field-row">
+        <label>As of</label>
+        <input type="date" id="as-of-input" placeholder="YYYY-MM-DD">
       </div>
-
-      <button class="btn btn-primary" id="btnRun">
-        <span>▶</span> Start Pipeline Run
+      <button class="btn btn-primary" onclick="startRun()">
+        <span id="run-btn-text">▶ Run Analysis</span>
+        <span id="run-spinner" class="spinner" style="display:none"></span>
       </button>
-
-      <div style="display: flex; gap: 8px;">
-        <button class="btn btn-secondary" style="flex: 1;" id="btnBacktest">
-          Backtest Cohort
-        </button>
-        <button class="btn btn-secondary" style="flex: 1;" id="btnRunway">
-          Runway Watch
-        </button>
-      </div>
-
-      <div style="margin-top: auto; font-size: 11px; color: var(--text-muted); line-height: 1.5; border-top: 1px solid var(--card-border); pt: 14px;">
-        <strong>Design Rules:</strong><br>
-        • Every number traces to a Crustdata Fact<br>
-        • Scorer is pure code, no LLM math<br>
-        • Verifier blocks lookahead leakage
+      <div class="btn-row">
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="clearTrace()">Clear</button>
       </div>
     </div>
 
-    <!-- Middle: Live Agent Lanes -->
-    <div class="middle-lanes">
-      <div class="lanes-header">
-        <div class="lanes-title">Live Agent Lanes & Fact Trace</div>
-        <div class="firewall-counter" id="firewallBadge">Time Firewall: Live Mode</div>
-      </div>
-      <div class="lanes-feed" id="lanesFeed">
-        <div style="color: var(--text-muted); text-align: center; margin-top: 40px;">
-          Ready. Launch a run or backtest to view live multi-agent execution.
-        </div>
+    <div class="panel-section">
+      <div class="section-label">Credits</div>
+      <div id="credit-bar-wrap"><div id="credit-bar"></div></div>
+      <div id="credit-label">0 / 150 credits</div>
+    </div>
+  </aside>
+
+  <!-- ─── Middle Panel (Live Trace) ─── -->
+  <main id="middle">
+    <div id="trace-header">
+      <h2>Live Trace</h2>
+      <div id="firewall-badge">🔒 <span id="firewall-count">0</span> facts hidden by time firewall</div>
+      <div class="spacer"></div>
+      <span id="run-status-label" style="font-size:10px;color:var(--muted)"></span>
+    </div>
+    <div id="trace-body">
+      <div id="trace-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+        </svg>
+        <p>Start a run to see live agent traces</p>
+        <p style="font-size:10px">Each company gets its own swimlane</p>
       </div>
     </div>
+  </main>
 
-    <!-- Right: Verdicts & Memos Tabs -->
-    <div class="right-panel">
-      <div class="tabs-header">
-        <button class="tab-btn active" data-tab="tabCalls">Calls</button>
-        <button class="tab-btn" data-tab="tabRunway">Runway Watch</button>
-        <button class="tab-btn" data-tab="tabBacktest">Backtest Scorecard</button>
-      </div>
-
-      <!-- Tab 1: Calls -->
-      <div class="tab-content active" id="tabCalls">
-        <div id="verdictsList" style="display: flex; flex-direction: column; gap: 14px;">
-          <div style="color: var(--text-muted); text-align: center; margin-top: 40px; font-size: 13px;">
-            Verdicts will appear here as IC convenes.
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 2: Runway Watch -->
-      <div class="tab-content" id="tabRunway">
-        <div style="margin-bottom: 14px; font-size: 13px; color: var(--text-muted);">
-          Portfolio Cash-Out Risk Monitor (Hiring freeze & headcount contraction signals)
-        </div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Company</th>
-              <th>Status</th>
-              <th>Est. Runway</th>
-              <th>Primary Signals</th>
-            </tr>
-          </thead>
-          <tbody id="runwayTableBody">
-            <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No runway report loaded.</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Tab 3: Backtest -->
-      <div class="tab-content" id="tabBacktest">
-        <div class="scorecard-banner" id="scorecardBanner" style="display: none;">
-          <div class="scorecard-item">
-            <h3 id="scBackHit" style="color: #34d399;">--</h3>
-            <p>Back Hit Rate</p>
-          </div>
-          <div class="scorecard-item">
-            <h3 id="scBaseRate" style="color: #60a5fa;">--</h3>
-            <p>Cohort Base Rate</p>
-          </div>
-          <div class="scorecard-item">
-            <h3 id="scBaseline" style="color: #fbbf24;">--</h3>
-            <p>Naive Baseline</p>
-          </div>
-        </div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Company</th>
-              <th>Call</th>
-              <th>Score</th>
-              <th>Raised in Horizon</th>
-            </tr>
-          </thead>
-          <tbody id="backtestTableBody">
-            <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Run backtest to view outcomes.</td></tr>
-          </tbody>
-        </table>
-      </div>
+  <!-- ─── Right Panel ─── -->
+  <aside id="right">
+    <div class="right-tabs">
+      <button class="right-tab active" onclick="switchTab('calls')">Calls</button>
+      <button class="right-tab" onclick="switchTab('runway')">Runway</button>
+      <button class="right-tab" onclick="switchTab('backtest')">Backtest</button>
     </div>
+
+    <!-- Calls Tab -->
+    <div id="tab-calls" class="tab-panel active">
+      <div id="calls-empty" class="empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h4"/>
+        </svg>
+        <p>Verdicts will appear here</p>
+        <p style="font-size:10px">Click any card to view the IC memo</p>
+      </div>
+      <div id="verdict-list"></div>
+    </div>
+
+    <!-- Runway Tab -->
+    <div id="tab-runway" class="tab-panel">
+      <div class="runway-trigger-row">
+        <input class="runway-domains-input" id="runway-domains-input"
+          placeholder="Domains (comma-sep, or leave blank for portfolio.yaml)">
+        <button class="btn btn-secondary btn-sm" onclick="startRunway()">Run</button>
+      </div>
+      <div id="runway-empty" class="empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <p>Portfolio runway risk</p>
+        <p style="font-size:10px">Click Run to evaluate portfolio domains</p>
+      </div>
+      <div id="runway-list"></div>
+    </div>
+
+    <!-- Backtest Tab -->
+    <div id="tab-backtest" class="tab-panel">
+      <div class="bt-trigger-row">
+        <label>As of</label>
+        <input type="date" id="bt-as-of" value="2024-01-01">
+        <label>Horizon</label>
+        <input type="number" id="bt-horizon" value="18" min="6" max="36" style="width:60px">
+        <span style="font-size:10px;color:var(--muted)">mo</span>
+        <button class="btn btn-secondary btn-sm" onclick="startBacktest()">Run</button>
+      </div>
+      <div id="backtest-empty" class="empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        <p>Temporal backtest</p>
+        <p style="font-size:10px">Runs pipeline as of a past date with time firewall</p>
+      </div>
+      <div id="backtest-content"></div>
+    </div>
+  </aside>
+</div>
+
+<!-- ─── Memo Modal ─── -->
+<div id="memo-panel" onclick="closeMemo(event)">
+  <div id="memo-box">
+    <div id="memo-box-header">
+      <div id="memo-verdict-badge" class="verdict-badge"></div>
+      <div id="memo-box-title">IC Memo</div>
+      <button id="memo-close" onclick="closeMemoBtn()">×</button>
+    </div>
+    <div id="memo-content"></div>
   </div>
+</div>
 
-  <!-- Fact Popover Modal -->
-  <div id="factModal">
-    <div class="modal-card">
-      <div class="modal-head">
-        <div class="modal-title" id="factModalTitle">Fact Detail</div>
-        <button class="close-btn" onclick="closeFactModal()">✕</button>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
-        <div><strong>Key:</strong> <span id="factModalKey" style="font-family: 'JetBrains Mono'; color: #60a5fa;"></span></div>
-        <div><strong>Value:</strong> <span id="factModalValue" style="font-weight: 700;"></span></div>
-        <div><strong>Endpoint:</strong> <span id="factModalEndpoint" style="color: var(--text-muted);"></span></div>
-        <div><strong>Field Path:</strong> <span id="factModalPath" style="font-family: 'JetBrains Mono'; font-size: 11px;"></span></div>
-        <div><strong>Known Since:</strong> <span id="factModalDate"></span></div>
-      </div>
-      <div>
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">RAW CRUSTDATA EXCERPT:</div>
-        <div class="raw-snippet" id="factModalExcerpt"></div>
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════════
+const state = {
+  runId: null,
+  es: null,                    // EventSource
+  lanes: {},                   // company_id → {el, events[]}
+  verdicts: [],
+  credits: { used: 0, budget: 150 },
+  firewallCount: 0,
+  factCache: {},               // fact_id → Fact
+  activeRunFacts: {},          // fact_id → Fact (from current run events)
+  running: false,
+};
+
+// ════════════════════════════════════════════════════════════
+// Init
+// ════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  await checkHealth();
+  await loadTheses();
+});
+
+async function checkHealth() {
+  try {
+    const r = await fetch('/healthz');
+    const d = await r.json();
+    const dot = document.getElementById('health-dot');
+    const lbl = document.getElementById('health-label');
+    const offBadge = document.getElementById('offline-badge');
+    dot.className = d.ok ? 'ok' : 'error';
+    lbl.textContent = d.crustdata_key ? 'API ready' : 'No Crustdata key';
+    if (d.offline) offBadge.style.display = '';
+    state.credits.budget = 150;
+  } catch(e) {
+    document.getElementById('health-label').textContent = 'Server offline';
+  }
+}
+
+async function loadTheses() {
+  try {
+    const r = await fetch('/api/theses');
+    const d = await r.json();
+    const sel = document.getElementById('thesis-select');
+    sel.innerHTML = '';
+    for (const t of d.theses) {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.name;
+      sel.appendChild(opt);
+    }
+  } catch(e) { /* keep defaults */ }
+}
+
+function onThesisChange() {}
+
+// ════════════════════════════════════════════════════════════
+// Run
+// ════════════════════════════════════════════════════════════
+async function startRun() {
+  if (state.running) { toast('A run is already in progress'); return; }
+
+  const request   = document.getElementById('request-input').value.trim()
+                    || 'Pre-seed/seed Indian B2B companies with operator founders';
+  const thesis    = document.getElementById('thesis-select').value;
+  const as_of     = document.getElementById('as-of-input').value || null;
+  const companiesRaw = document.getElementById('companies-input').value;
+  const companies = companiesRaw
+    ? companiesRaw.split('\n').map(s=>s.trim()).filter(Boolean)
+    : null;
+
+  clearTrace(false);
+  state.running = true;
+  setRunBtn(true);
+  document.getElementById('trace-empty').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/runs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request, thesis, as_of, companies }),
+    });
+    const data = await res.json();
+    state.runId = data.run_id;
+
+    if (as_of) {
+      document.getElementById('firewall-badge').style.display = '';
+    }
+
+    updateRunStatus(`Run ${state.runId} started`);
+    subscribeSSE(data.run_id);
+  } catch(e) {
+    toast('Failed to start run: ' + e.message, true);
+    setRunBtn(false);
+    state.running = false;
+  }
+}
+
+function subscribeSSE(runId) {
+  if (state.es) state.es.close();
+  const es = new EventSource(`/api/runs/${runId}/events`);
+  state.es = es;
+
+  es.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    handleEvent(ev);
+  };
+  es.onerror = () => {
+    // SSE closed (run done or error)
+    es.close();
+    state.running = false;
+    setRunBtn(false);
+    updateRunStatus('Run complete');
+  };
+}
+
+function handleEvent(ev) {
+  const { kind, company_id, message, data, ts, agent } = ev;
+
+  // Credit tracking
+  if (kind === 'credits' && data.used !== undefined) {
+    updateCredits(data.used, data.budget || state.credits.budget);
+  }
+
+  // Firewall counter
+  if (kind === 'firewall') {
+    state.firewallCount += (data.blocked || 1);
+    document.getElementById('firewall-count').textContent = state.firewallCount;
+  }
+
+  // Store facts from events
+  if (kind === 'fact' && data.fact) {
+    const f = data.fact;
+    state.activeRunFacts[f.id] = f;
+  }
+
+  // Verdict
+  if (kind === 'verdict' && data) {
+    // Verdicts will be loaded from /api/runs/{id} on done
+  }
+
+  // Done
+  if (kind === 'done') {
+    state.running = false;
+    setRunBtn(false);
+    updateRunStatus('Run complete');
+    loadFinalVerdicts(state.runId);
+  }
+
+  // Route to swimlane or global
+  if (company_id) {
+    ensureLane(company_id);
+    appendLaneEvent(company_id, ev);
+    if (kind === 'verdict' && data.decision) {
+      setLaneStatus(company_id, 'done');
+    }
+    if (kind === 'error') {
+      setLaneStatus(company_id, 'error');
+    }
+  } else {
+    appendGlobalEvent(ev);
+  }
+}
+
+async function loadFinalVerdicts(runId) {
+  try {
+    const r = await fetch(`/api/runs/${runId}`);
+    const d = await r.json();
+    if (d.verdicts && d.verdicts.length) {
+      state.verdicts = d.verdicts;
+      renderVerdicts(d.verdicts);
+      switchTab('calls');
+    }
+  } catch(e) { toast('Could not load verdicts', true); }
+}
+
+// ════════════════════════════════════════════════════════════
+// Swimlanes
+// ════════════════════════════════════════════════════════════
+function ensureLane(companyId) {
+  if (state.lanes[companyId]) return;
+  const traceEmpty = document.getElementById('trace-empty');
+  if (traceEmpty) traceEmpty.style.display = 'none';
+
+  const lane = document.createElement('div');
+  lane.className = 'swimlane';
+  lane.id = `lane-${cssId(companyId)}`;
+
+  const header = document.createElement('div');
+  header.className = 'swimlane-header';
+  header.innerHTML = `
+    <span class="swimlane-name">${esc(companyId)}</span>
+    <span class="swimlane-status running" id="ls-${cssId(companyId)}">Running</span>`;
+  header.onclick = () => events.classList.toggle('collapsed');
+
+  const events = document.createElement('div');
+  events.className = 'swimlane-events';
+
+  lane.appendChild(header);
+  lane.appendChild(events);
+  document.getElementById('trace-body').appendChild(lane);
+  state.lanes[companyId] = { el: lane, eventsEl: events, collapsed: false };
+}
+
+function appendLaneEvent(companyId, ev) {
+  const lane = state.lanes[companyId];
+  if (!lane) return;
+  lane.eventsEl.appendChild(buildEventRow(ev));
+  lane.eventsEl.scrollTop = lane.eventsEl.scrollHeight;
+}
+
+function setLaneStatus(companyId, status) {
+  const el = document.getElementById(`ls-${cssId(companyId)}`);
+  if (!el) return;
+  el.className = `swimlane-status ${status}`;
+  el.textContent = status === 'done' ? 'Done' : status === 'error' ? 'Error' : 'Running';
+}
+
+function appendGlobalEvent(ev) {
+  const row = document.createElement('div');
+  row.className = 'global-event';
+  row.innerHTML = `<span class="event-badge ${ev.kind}">${ev.kind}</span>
+    <span class="event-msg">${esc(ev.message)}</span>`;
+  const body = document.getElementById('trace-body');
+  const empty = document.getElementById('trace-empty');
+  if (empty) empty.style.display = 'none';
+  body.appendChild(row);
+  body.scrollTop = body.scrollHeight;
+}
+
+function buildEventRow(ev) {
+  const row = document.createElement('div');
+  row.className = 'event-row';
+  const t = new Date(ev.ts);
+  const ts = `${t.getHours().toString().padStart(2,'0')}:${t.getMinutes().toString().padStart(2,'0')}:${t.getSeconds().toString().padStart(2,'0')}`;
+  row.innerHTML = `
+    <span class="event-ts">${ts}</span>
+    <span class="event-badge ${ev.kind}">${ev.kind}</span>
+    <span class="event-msg">${esc(ev.message)}</span>`;
+  return row;
+}
+
+// ════════════════════════════════════════════════════════════
+// Verdicts
+// ════════════════════════════════════════════════════════════
+function renderVerdicts(verdicts) {
+  const list = document.getElementById('verdict-list');
+  const empty = document.getElementById('calls-empty');
+  list.innerHTML = '';
+  if (!verdicts.length) return;
+  empty.style.display = 'none';
+
+  // Sort: back > watch > pass > human_review
+  const order = { back: 0, watch: 1, pass: 2, human_review: 3 };
+  verdicts = [...verdicts].sort((a,b) =>
+    (order[a.decision]||4) - (order[b.decision]||4) || b.score.total - a.score.total);
+
+  for (const v of verdicts) {
+    list.appendChild(buildVerdictCard(v));
+  }
+}
+
+function buildVerdictCard(v) {
+  const card = document.createElement('div');
+  card.className = 'verdict-card';
+  card.onclick = () => openMemo(v);
+
+  const score = v.score;
+  const parts = score.parts || {};
+  const partKeys = Object.keys(parts);
+
+  const barsHtml = partKeys.map(k => {
+    const val = parts[k];
+    const pct = Math.min(100, Math.max(0, val));
+    return `<div class="score-bar-row">
+      <span class="score-bar-label">${k}</span>
+      <div class="score-bar-track"><div class="score-bar-fill" style="width:${pct}%"></div></div>
+      <span class="score-bar-val">${val.toFixed(0)}</span>
+    </div>`;
+  }).join('');
+
+  const flagsHtml = (v.flags||[]).map(f =>
+    `<span class="flag-chip">${esc(f)}</span>`).join('');
+
+  const scoreColor = score.total >= 70 ? 'var(--green)' :
+                     score.total >= 50 ? 'var(--yellow)' : 'var(--red)';
+
+  card.innerHTML = `
+    <div class="verdict-card-header">
+      <span class="verdict-badge ${v.decision}">${decisionLabel(v.decision)}</span>
+      <span class="verdict-name">${esc(v.name || v.company_id)}</span>
+      <div class="verdict-score-wrap">
+        <span class="verdict-score-num" style="color:${scoreColor}">${score.total.toFixed(1)}</span>
+        <span style="color:var(--muted);font-size:10px">/100</span>
       </div>
     </div>
-  </div>
+    <div class="verdict-body">
+      <div class="score-bars">${barsHtml}</div>
+      <div class="confidence-row">Confidence: <b>${(score.confidence*100).toFixed(0)}%</b></div>
+      ${flagsHtml ? `<div class="flags-row">${flagsHtml}</div>` : ''}
+      ${v.rationale ? `<div class="rationale-text">${esc(v.rationale)}</div>` : ''}
+    </div>`;
+  return card;
+}
 
-  <script>
-    // Tab Switching
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(btn.dataset.tab).classList.add('active');
-      });
-    });
+function decisionLabel(d) {
+  return { back: '▲ Back', watch: '◎ Watch', pass: '✕ Pass', human_review: '⚑ Human Review' }[d] || d;
+}
 
-    let activeEventSource = null;
+// ════════════════════════════════════════════════════════════
+// Memo Modal
+// ════════════════════════════════════════════════════════════
+function openMemo(v) {
+  const panel = document.getElementById('memo-panel');
+  const content = document.getElementById('memo-content');
+  const title = document.getElementById('memo-box-title');
+  const badge = document.getElementById('memo-verdict-badge');
 
-    function appendEvent(ev) {
-      const feed = document.getElementById('lanesFeed');
-      if (feed.children.length === 1 && feed.children[0].textContent.includes('Ready')) {
-        feed.innerHTML = '';
-      }
+  title.textContent = v.name || v.company_id;
+  badge.className = `verdict-badge ${v.decision}`;
+  badge.textContent = decisionLabel(v.decision);
 
-      const card = document.createElement('div');
-      card.className = 'event-card';
+  const memo = v.memo;
+  let html = '';
 
-      const agentClass = `agent-${ev.agent || 'company'}`;
-      card.innerHTML = `
-        <div class="event-meta">
-          <span class="event-agent ${agentClass}">${ev.agent || 'SYSTEM'}</span>
-          <span>${ev.company_id || ''}</span>
-          <span style="margin-left: auto;">${ev.kind}</span>
+  if (memo.removed_by_verifier > 0) {
+    html += `<div class="memo-removed">⚠ ${memo.removed_by_verifier} claim(s) removed by verifier</div>`;
+  }
+
+  const sectionOrder = ['summary','founders','market','signals','risks','bear_case'];
+  const sections = memo.sections || {};
+  const keys = [...sectionOrder.filter(k=>sections[k]),
+                ...Object.keys(sections).filter(k=>!sectionOrder.includes(k))];
+
+  for (const sec of keys) {
+    const sentences = sections[sec] || [];
+    if (!sentences.length) continue;
+    html += `<div class="memo-section-title">${sec.replace(/_/g,' ').toUpperCase()}</div>`;
+    for (const s of sentences) {
+      html += `<div class="memo-sentence">${buildSentenceHtml(s)}</div>`;
+    }
+  }
+
+  if (!html) html = '<p style="color:var(--muted);font-size:12px">No memo content available.</p>';
+
+  content.innerHTML = html;
+  panel.classList.add('open');
+}
+
+function buildSentenceHtml(sentence) {
+  const text = sentence.rendered || sentence.template || '';
+  const fids = sentence.fact_ids || [];
+
+  // Render text with fact chip buttons
+  let display = esc(text).replace(/\{([A-Za-z0-9_-]+)\}/g, (_, fid) => {
+    return buildFactChip(fid);
+  });
+
+  // Append fact chips for any cited facts not already in template
+  const inTemplate = (text.match(/\{([A-Za-z0-9_-]+)\}/g) || [])
+    .map(m => m.slice(1,-1));
+  const extra = fids.filter(f => !inTemplate.includes(f));
+  const chips = extra.map(fid => buildFactChip(fid)).join('');
+
+  return display + (chips ? ' ' + chips : '');
+}
+
+function buildFactChip(fid) {
+  const fact = state.activeRunFacts[fid] || state.factCache[fid];
+  let popoverHtml = '';
+  if (fact) {
+    popoverHtml = `
+      <div class="fact-popover">
+        <div class="fact-popover-key">${esc(fact.key)}</div>
+        <div class="fact-popover-val">${formatFactValue(fact)}</div>
+        <div class="fact-popover-meta">
+          Endpoint: ${esc(fact.endpoint)}<br>
+          Field: ${esc(fact.field_path)}<br>
+          ${fact.known_since ? `Known since: ${fact.known_since}<br>` : ''}
+          Fetched: ${fact.fetched_at ? new Date(fact.fetched_at).toLocaleDateString() : ''}
         </div>
-        <div style="color: var(--text-main);">${ev.message}</div>
-      `;
+        <div class="fact-popover-raw">${esc(fact.raw_excerpt||'')}</div>
+      </div>`;
+  }
+  return `<span class="fact-chip" onclick="loadFact('${esc(fid)}')">${esc(fid)}${popoverHtml}</span>`;
+}
 
-      feed.appendChild(card);
-      feed.scrollTop = feed.scrollHeight;
-
-      if (ev.kind === 'firewall') {
-        const badge = document.getElementById('firewallBadge');
-        badge.textContent = `Firewall: ${ev.data.blocked_count} Facts Hidden (${ev.data.as_of})`;
-      }
-
-      if (ev.kind === 'credits') {
-        updateCredits(ev.data.used, ev.data.budget);
-      }
+async function loadFact(fid) {
+  if (state.activeRunFacts[fid] || state.factCache[fid]) return;
+  try {
+    const r = await fetch(`/api/facts/${fid}`);
+    if (r.ok) {
+      state.factCache[fid] = await r.json();
     }
+  } catch(e) {}
+}
 
-    function updateCredits(used, budget) {
-      const fill = document.getElementById('creditFill');
-      const text = document.getElementById('creditText');
-      text.textContent = `${used} / ${budget || 150}`;
-      const pct = Math.min(100, Math.round((used / (budget || 150)) * 100));
-      fill.style.width = `${pct}%`;
-      if (pct > 80) fill.style.background = 'var(--red)';
-      else if (pct > 50) fill.style.background = 'var(--yellow)';
-      else fill.style.background = 'var(--accent)';
-    }
+function formatFactValue(fact) {
+  if (fact.value === null || fact.value === undefined) return 'N/A';
+  const v = fact.value;
+  const u = fact.unit;
+  if (u === '%') {
+    const pct = typeof v === 'number' ? (Math.abs(v) <= 1 ? v*100 : v) : parseFloat(v);
+    return isNaN(pct) ? String(v) : `${pct.toFixed(1)}%`;
+  }
+  if (u === 'USD' && typeof v === 'number') {
+    if (v >= 1e9) return `$${(v/1e9).toFixed(1)}B`;
+    if (v >= 1e6) return `$${(v/1e6).toFixed(1)}M`;
+    if (v >= 1e3) return `$${(v/1e3).toFixed(0)}K`;
+    return `$${v}`;
+  }
+  return String(v) + (u && u !== 'USD' && u !== '%' ? ` ${u}` : '');
+}
 
-    // Connect SSE
-    function connectSSE(runId) {
-      if (activeEventSource) activeEventSource.close();
-      const sse = new EventSource(`/api/runs/${runId}/events`);
-      activeEventSource = sse;
+function closeMemo(e) {
+  if (e.target === document.getElementById('memo-panel')) closeMemoBtn();
+}
+function closeMemoBtn() {
+  document.getElementById('memo-panel').classList.remove('open');
+}
 
-      sse.onmessage = (e) => {
-        try {
-          const ev = JSON.parse(e.data);
-          appendEvent(ev);
-          if (ev.kind === 'verdict') {
-            loadVerdicts(runId);
-          }
-          if (ev.kind === 'done') {
-            document.getElementById('statusText').textContent = 'Completed';
-            sse.close();
-          }
-        } catch (err) {
-          console.error(err);
-        }
-      };
-      sse.onerror = () => {
-        sse.close();
-      };
-    }
+// ════════════════════════════════════════════════════════════
+// Runway
+// ════════════════════════════════════════════════════════════
+async function startRunway() {
+  const raw = document.getElementById('runway-domains-input').value.trim();
+  const domains = raw ? raw.split(',').map(s=>s.trim()).filter(Boolean) : null;
+  const thesis = document.getElementById('thesis-select').value;
 
-    // Run Pipeline
-    document.getElementById('btnRun').addEventListener('click', async () => {
-      const thesis = document.getElementById('thesisSelect').value;
-      const companiesRaw = document.getElementById('targetCompanies').value.trim();
-      const companies = companiesRaw ? companiesRaw.split('\n').map(s => s.trim()).filter(Boolean) : null;
-      const asOf = document.getElementById('asOfDate').value;
-
-      document.getElementById('lanesFeed').innerHTML = '';
-      document.getElementById('statusText').textContent = 'Pipeline Running...';
-
-      const res = await fetch('/api/runs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thesis, companies, as_of: asOf || null })
-      });
-      const data = await res.json();
-      connectSSE(data.run_id);
+  try {
+    const r = await fetch('/api/runway', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domains, thesis }),
     });
+    const d = await r.json();
+    renderRunway(d.reports || []);
+  } catch(e) {
+    toast('Runway request failed: ' + e.message, true);
+  }
+}
 
-    // Run Backtest
-    document.getElementById('btnBacktest').addEventListener('click', async () => {
-      const thesis = document.getElementById('thesisSelect').value;
-      const asOf = document.getElementById('asOfDate').value || '2024-01-01';
+function renderRunway(reports) {
+  const list = document.getElementById('runway-list');
+  const empty = document.getElementById('runway-empty');
+  list.innerHTML = '';
+  if (!reports.length) return;
+  empty.style.display = 'none';
 
-      document.getElementById('lanesFeed').innerHTML = '';
-      document.getElementById('statusText').textContent = 'Backtesting Cohort...';
+  for (const rpt of reports) {
+    const card = document.createElement('div');
+    card.className = 'runway-card';
 
-      // Switch to Backtest tab
-      document.querySelector('[data-tab="tabBacktest"]').click();
+    const months = rpt.est_months_left !== null && rpt.est_months_left !== undefined
+      ? `${rpt.est_months_left.toFixed(1)} mo`
+      : '—';
+    const monthsColor = rpt.level === 'alert' ? 'var(--red)'
+      : rpt.level === 'watch' ? 'var(--yellow)' : 'var(--text)';
 
-      const res = await fetch('/api/backtest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thesis, as_of: asOf, horizon_months: 18 })
-      });
-      const data = await res.json();
-      connectSSE(data.backtest_id);
+    const signalsHtml = (rpt.signals||[]).map(s =>
+      `<div class="runway-signal-item">${esc(s)}</div>`).join('');
+    const assumptionsHtml = (rpt.assumptions||[]).map(a =>
+      `<div class="runway-assumption">${esc(a)}</div>`).join('');
 
-      // Poll for backtest completion
-      const poller = setInterval(async () => {
-        const repRes = await fetch(`/api/backtest/${data.backtest_id}`);
-        const report = await repRes.json();
-        if (report.n !== undefined) {
-          clearInterval(poller);
-          renderBacktestReport(report);
-        }
-      }, 3000);
+    card.innerHTML = `
+      <div class="runway-card-header">
+        <span class="runway-level ${rpt.level}">${rpt.level.toUpperCase()}</span>
+        <span style="font-size:13px;font-weight:700">${esc(rpt.company_id)}</span>
+      </div>
+      <span class="runway-proxy-label">PROXY ESTIMATE — not confirmed by company</span>
+      <div class="runway-months" style="color:${monthsColor}">${months} runway</div>
+      ${signalsHtml ? `<div class="runway-signals">${signalsHtml}</div>` : ''}
+      ${assumptionsHtml ? `<div class="runway-assumptions">${assumptionsHtml}</div>` : ''}`;
+
+    list.appendChild(card);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// Backtest
+// ════════════════════════════════════════════════════════════
+async function startBacktest() {
+  const as_of = document.getElementById('bt-as-of').value;
+  const horizon_months = parseInt(document.getElementById('bt-horizon').value) || 18;
+  const thesis = document.getElementById('thesis-select').value;
+
+  if (!as_of) { toast('Enter an as-of date first'); return; }
+
+  document.getElementById('backtest-content').innerHTML =
+    '<div class="empty-state"><div class="spinner"></div><p>Running backtest…</p></div>';
+
+  try {
+    const r = await fetch('/api/backtest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thesis, as_of, horizon_months }),
     });
+    const d = await r.json();
+    const btId = d.backtest_id;
 
-    function renderBacktestReport(report) {
-      document.getElementById('scorecardBanner').style.display = 'grid';
-      document.getElementById('scBackHit').textContent = `${Math.round(report.back_hit_rate * 100)}%`;
-      document.getElementById('scBaseRate').textContent = `${Math.round(report.base_rate * 100)}%`;
-      document.getElementById('scBaseline').textContent = `${Math.round(report.baseline_hit_rate * 100)}%`;
-
-      const tbody = document.getElementById('backtestTableBody');
-      tbody.innerHTML = '';
-      (report.cases || []).forEach(c => {
-        const tr = document.createElement('tr');
-        const raisedBadge = c.outcome_raised_within_horizon
-          ? `<span style="color: #34d399; font-weight:700;">✓ Raised Institutional Round</span>`
-          : `<span style="color: var(--text-muted);">✗ No Round</span>`;
-
-        tr.innerHTML = `
-          <td><strong>${c.company_id}</strong></td>
-          <td><span class="decision-badge decision-${c.decision}">${c.decision}</span></td>
-          <td><span style="font-family: 'JetBrains Mono';">${c.score.toFixed(1)}</span></td>
-          <td>${raisedBadge}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Run Runway Watch
-    document.getElementById('btnRunway').addEventListener('click', async () => {
-      document.querySelector('[data-tab="tabRunway"]').click();
-      document.getElementById('statusText').textContent = 'Analyzing Runway...';
-
-      const res = await fetch('/api/runway', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ thesis: document.getElementById('thesisSelect').value })
-      });
-      const data = await res.json();
-      renderRunwayReports(data.reports);
-      document.getElementById('statusText').textContent = 'System Ready';
-    });
-
-    function renderRunwayReports(reports) {
-      const tbody = document.getElementById('runwayTableBody');
-      tbody.innerHTML = '';
-      (reports || []).forEach(r => {
-        const tr = document.createElement('tr');
-        const levelBadge = `<span class="decision-badge decision-${r.level === 'alert' ? 'pass' : (r.level === 'watch' ? 'watch' : 'back')}">${r.level}</span>`;
-        const estText = r.est_months_left !== null ? `~${r.est_months_left} mos` : 'Unknown';
-
-        tr.innerHTML = `
-          <td><strong>${r.company_id}</strong></td>
-          <td>${levelBadge}</td>
-          <td style="font-family: 'JetBrains Mono'; font-weight: 700;">${estText}</td>
-          <td style="color: #cbd5e1;">${r.signals.join('; ') || 'Normal hiring activity'}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Load Verdicts for run
-    async function loadVerdicts(runId) {
-      const res = await fetch(`/api/runs/${runId}`);
-      const data = await res.json();
-      const list = document.getElementById('verdictsList');
-      if (!data.verdicts || data.verdicts.length === 0) return;
-
-      list.innerHTML = '';
-      data.verdicts.forEach(v => {
-        const card = document.createElement('div');
-        card.className = 'verdict-card';
-
-        const checkHtml = v.check_size
-          ? `<div class="check-size-box"><span>Recommended Check Size:</span><span>$${Number(v.check_size).toLocaleString()}</span></div>`
-          : '';
-
-        card.innerHTML = `
-          <div class="verdict-head">
-            <span class="company-name">${v.name || v.company_id}</span>
-            <span class="decision-badge decision-${v.decision}">${v.decision}</span>
-          </div>
-          <div class="score-row">
-            <div class="score-total">${v.score.total.toFixed(1)}<span style="font-size: 13px; color: var(--text-muted);">/100</span></div>
-            <div class="score-parts">
-              <span class="part-chip">Founders: ${v.score.parts.founders?.toFixed(0) || 0}</span>
-              <span class="part-chip">Thesis Fit: ${v.score.parts.thesis_fit?.toFixed(0) || 0}</span>
-              <span class="part-chip">Signals: ${v.score.parts.signals?.toFixed(0) || 0}</span>
-              <span class="part-chip">Confidence: ${(v.score.confidence * 100).toFixed(0)}%</span>
-            </div>
-          </div>
-          ${checkHtml}
-          <div class="rationale-text">${v.rationale}</div>
-        `;
-        list.appendChild(card);
-      });
-    }
-
-    // Fact Popover Modal
-    async function openFactModal(factId) {
-      try {
-        const res = await fetch(`/api/facts/${factId}`);
-        if (!res.ok) return;
-        const fact = await res.json();
-        document.getElementById('factModalKey').textContent = fact.key;
-        document.getElementById('factModalValue').textContent = `${fact.value} ${fact.unit || ''}`;
-        document.getElementById('factModalEndpoint').textContent = fact.endpoint;
-        document.getElementById('factModalPath').textContent = fact.field_path;
-        document.getElementById('factModalDate').textContent = fact.known_since || 'Undated (Realtime)';
-        document.getElementById('factModalExcerpt').textContent = fact.raw_excerpt;
-        document.getElementById('factModal').style.display = 'flex';
-      } catch (err) {
-        console.error(err);
+    // Poll for result
+    const poll = async () => {
+      const rr = await fetch(`/api/backtest/${btId}`);
+      const dd = await rr.json();
+      if (dd.back_hit_rate !== undefined) {
+        renderBacktest(dd);
+      } else {
+        setTimeout(poll, 1500);
       }
-    }
+    };
+    setTimeout(poll, 1000);
+  } catch(e) {
+    toast('Backtest failed: ' + e.message, true);
+    document.getElementById('backtest-content').innerHTML = '';
+  }
+}
 
-    function closeFactModal() {
-      document.getElementById('factModal').style.display = 'none';
+function renderBacktest(report) {
+  const container = document.getElementById('backtest-content');
+  const empty = document.getElementById('backtest-empty');
+  empty.style.display = 'none';
+
+  const backRate = (report.back_hit_rate * 100).toFixed(0);
+  const passRate = (report.pass_hit_rate * 100).toFixed(0);
+  const base     = (report.base_rate * 100).toFixed(0);
+  const baseline = (report.baseline_hit_rate * 100).toFixed(0);
+
+  const backGood = report.back_hit_rate > report.base_rate;
+  const passGood = report.pass_hit_rate < report.base_rate;
+
+  const casesHtml = (report.cases || []).map(c => {
+    const outCls = c.outcome_raised_within_horizon === true ? 'bt-outcome-yes'
+                 : c.outcome_raised_within_horizon === false ? 'bt-outcome-no' : 'bt-outcome-unk';
+    const outText = c.outcome_raised_within_horizon === true ? '✓ Raised'
+                  : c.outcome_raised_within_horizon === false ? '✗ Didn\'t raise' : '?';
+    const decBadge = `<span class="verdict-badge ${c.decision}" style="font-size:9px;padding:1px 6px">${c.decision}</span>`;
+    return `<tr>
+      <td>${esc(c.company_id)}</td>
+      <td>${decBadge}</td>
+      <td>${c.score.toFixed(1)}</td>
+      <td class="${outCls}">${outText}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="backtest-scorecard">
+      <div class="backtest-meta">
+        As of <b>${report.as_of}</b> · Horizon <b>${report.horizon_months} months</b> ·
+        n = <b>${report.n}</b> companies
+      </div>
+      <div class="bt-metrics">
+        <div class="bt-metric">
+          <div class="bt-metric-val ${backGood?'good':'bad'}">${backRate}%</div>
+          <div class="bt-metric-label">Back hit rate</div>
+        </div>
+        <div class="bt-metric">
+          <div class="bt-metric-val ${passGood?'good':'bad'}">${passRate}%</div>
+          <div class="bt-metric-label">Pass hit rate (lower ↓)</div>
+        </div>
+        <div class="bt-metric">
+          <div class="bt-metric-val neutral">${base}%</div>
+          <div class="bt-metric-label">Cohort base rate</div>
+        </div>
+        <div class="bt-metric">
+          <div class="bt-metric-val neutral">${baseline}%</div>
+          <div class="bt-metric-label">Naive baseline</div>
+        </div>
+      </div>
+      <div class="bt-firewall">
+        🔒 ${report.facts_blocked} facts hidden by time firewall · LLM prompts anonymised
+      </div>
+    </div>
+    ${casesHtml ? `
+    <table class="bt-case-table">
+      <thead><tr><th>Company</th><th>Decision</th><th>Score</th><th>Outcome</th></tr></thead>
+      <tbody>${casesHtml}</tbody>
+    </table>` : ''}`;
+}
+
+// ════════════════════════════════════════════════════════════
+// Replay
+// ════════════════════════════════════════════════════════════
+async function replayLastRun() {
+  try {
+    const r = await fetch('/api/runs/last');
+    if (!r.ok) { toast('No saved run found'); return; }
+    const d = await r.json();
+    if (d.verdicts && d.verdicts.length) {
+      clearTrace(false);
+      state.verdicts = d.verdicts;
+      renderVerdicts(d.verdicts);
+      switchTab('calls');
+      toast('Replaying last run');
     }
-  </script>
+  } catch(e) {
+    // Try listing saved runs
+    toast('No saved run available');
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// UI helpers
+// ════════════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.right-tab').forEach((t,i) => {
+    const names = ['calls','runway','backtest'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `tab-${name}`);
+  });
+}
+
+function clearTrace(resetVerdicts=true) {
+  document.getElementById('trace-body').innerHTML =
+    `<div id="trace-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:8px">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="opacity:.25">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+      </svg>
+      <p style="font-size:12px">Start a run to see live agent traces</p>
+    </div>`;
+  state.lanes = {};
+  state.firewallCount = 0;
+  document.getElementById('firewall-count').textContent = '0';
+  document.getElementById('firewall-badge').style.display = 'none';
+  updateRunStatus('');
+  if (resetVerdicts) {
+    state.verdicts = [];
+    document.getElementById('verdict-list').innerHTML = '';
+    document.getElementById('calls-empty').style.display = 'flex';
+  }
+  updateCredits(0, state.credits.budget);
+  if (state.es) { state.es.close(); state.es = null; }
+  state.running = false;
+  setRunBtn(false);
+}
+
+function setRunBtn(running) {
+  document.getElementById('run-btn-text').textContent = running ? 'Running…' : '▶ Run Analysis';
+  document.getElementById('run-spinner').style.display = running ? '' : 'none';
+}
+
+function updateCredits(used, budget) {
+  state.credits.used = used;
+  state.credits.budget = budget;
+  const pct = budget ? (used / budget) * 100 : 0;
+  const bar = document.getElementById('credit-bar');
+  bar.style.width = `${Math.min(pct, 100)}%`;
+  bar.className = pct > 80 ? 'danger' : pct > 60 ? 'warn' : '';
+  document.getElementById('credit-label').textContent = `${used} / ${budget} credits`;
+}
+
+function updateRunStatus(msg) {
+  document.getElementById('run-status-label').textContent = msg;
+}
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function cssId(s) {
+  return s.replace(/[^a-z0-9]/gi, '_');
+}
+
+let _toastTimer;
+function toast(msg, isError=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = isError ? 'var(--red)' : 'var(--border)';
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
 </body>
 </html>
