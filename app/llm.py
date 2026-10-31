@@ -42,7 +42,10 @@ import logging
 import time
 from typing import Any
 
-import jsonschema
+try:
+    import jsonschema
+except ImportError:
+    jsonschema = None
 
 from app.config import (
     LLM_API_KEY,
@@ -94,8 +97,16 @@ def _resolve_model(provider: str, override: str | None) -> str:
 
 def _validate(data: dict, schema: dict) -> list[str]:
     """Return a list of validation error messages (empty → valid)."""
-    validator = jsonschema.Draft7Validator(schema)
-    return [e.message for e in validator.iter_errors(data)]
+    if jsonschema is not None:
+        validator = jsonschema.Draft7Validator(schema)
+        return [e.message for e in validator.iter_errors(data)]
+    # Fallback validation if jsonschema is not installed
+    errors: list[str] = []
+    required = schema.get("required", [])
+    for key in required:
+        if key not in data:
+            errors.append(f"Missing required field: '{key}'")
+    return errors
 
 
 def _parse_retry_after(header_value: str | None, attempt: int) -> float:
