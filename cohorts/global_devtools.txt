@@ -1,0 +1,7 @@
+# Global Developer Tools & Cloud Infrastructure
+devzero.io
+composio.dev
+daytona.io
+gitpod.io
+warp.dev
+hasura.io

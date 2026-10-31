@@ -53,26 +53,64 @@ async def _emit_event(
     )
 
 
-def _load_fallback_cohort() -> list[str]:
-    """Read domains from cohorts/demo.txt if present and non-empty, else default list."""
+def _load_fallback_cohort(thesis: dict | None = None) -> list[str]:
+    """Read domains from thesis-specific cohort if present, else match sectors/geos, else demo.txt."""
+    if thesis:
+        # Check direct thesis id
+        tid = str(thesis.get("id") or "").lower()
+        if tid and (COHORTS_DIR / f"{tid}.txt").exists():
+            return _read_domain_file(COHORTS_DIR / f"{tid}.txt")
+
+        # Match by name, sectors, and geography
+        tname = str(thesis.get("name") or "").lower()
+        sectors = [str(s).lower() for s in thesis.get("sectors") or []]
+        geos = [str(g).lower() for g in thesis.get("geographies") or []]
+
+        if any("fintech" in s or "banking" in s or "payment" in s for s in sectors) or "fintech" in tname:
+            if (COHORTS_DIR / "fintech_infra.txt").exists():
+                return _read_domain_file(COHORTS_DIR / "fintech_infra.txt")
+
+        if any("climate" in s or "clean" in s or "energy" in s for s in sectors) or "climate" in tname:
+            if (COHORTS_DIR / "climate_tech.txt").exists():
+                return _read_domain_file(COHORTS_DIR / "climate_tech.txt")
+
+        if any("developer" in s or "devtools" in s or "devops" in s for s in sectors) or "devtools" in tname:
+            if (COHORTS_DIR / "global_devtools.txt").exists():
+                return _read_domain_file(COHORTS_DIR / "global_devtools.txt")
+
+        if any("enterprise ai" in s or "agent" in s for s in sectors) or "enterprise" in tname:
+            if (COHORTS_DIR / "enterprise_ai.txt").exists():
+                return _read_domain_file(COHORTS_DIR / "enterprise_ai.txt")
+
+        if any("us" in g or "united states" in g for g in geos) or "us" in tname:
+            if (COHORTS_DIR / "us_ai_seed.txt").exists():
+                return _read_domain_file(COHORTS_DIR / "us_ai_seed.txt")
+
+        if any("india" in g or "ind" in g for g in geos) or "india" in tname:
+            if (COHORTS_DIR / "preseed_india.txt").exists():
+                return _read_domain_file(COHORTS_DIR / "preseed_india.txt")
+
     cohort_path = COHORTS_DIR / "demo.txt"
-    domains: list[str] = []
     if cohort_path.exists():
-        with open(cohort_path, "r", encoding="utf-8") as f:
+        return _read_domain_file(cohort_path)
+
+    return [
+        "sarvam.ai",
+        "rupeecircle.com",
+        "devzero.io",
+        "composio.dev",
+        "superops.ai",
+    ]
+
+
+def _read_domain_file(path: Path) -> list[str]:
+    domains: list[str] = []
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#"):
                     domains.append(line)
-    if not domains:
-        # Pre-seed/seed Indian B2B tech startups & test cohort
-        domains = [
-            "sarvam.ai",
-            "krutrim.com",
-            "devzero.io",
-            "composio.dev",
-            "superops.ai",
-            "atlan.com",
-        ]
     return domains
 
 
@@ -171,7 +209,7 @@ async def run(
 
     # 3. Fallback if fewer than 3 candidates found
     if len(candidates) < 3:
-        fallback_list = _load_fallback_cohort()
+        fallback_list = _load_fallback_cohort(thesis)
         await _emit_event(
             bus,
             run_id=run_id,
