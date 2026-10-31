@@ -45,7 +45,7 @@ def _parse_date(value: Any) -> date | None:
     return None
 
 
-def load_backtest_cohort() -> list[str]:
+def load_backtest_cohort(limit: int = 8) -> list[str]:
     """Load pre-round cohort from cohorts/backtest.txt."""
     path = COHORTS_DIR / "backtest.txt"
     domains: list[str] = []
@@ -67,7 +67,7 @@ def load_backtest_cohort() -> list[str]:
             "postman.com",
             "hasura.io",
         ]
-    return domains
+    return domains[:limit] if limit else domains
 
 
 async def run_backtest(
@@ -83,7 +83,7 @@ async def run_backtest(
     event_bus = bus or global_bus
     event_bus.create_run(b_id)
 
-    cohort = cohort_domains or load_backtest_cohort()
+    cohort = cohort_domains or load_backtest_cohort(limit=8)
     thesis = load_thesis(thesis_name_or_dict)
 
     await event_bus.emit(
@@ -98,24 +98,32 @@ async def run_backtest(
         )
     )
 
-    # 1. Run pipeline blind as-of the historical date
+    # 1. Run pipeline blind as-of the historical date (stream directly to b_id)
     verdicts = await run_pipeline(
-        run_id=f"{b_id}-blind",
+        run_id=b_id,
         thesis_name_or_dict=thesis,
         companies=cohort,
         as_of=as_of,
         top_n=len(cohort),
         bus=event_bus,
+        finish_run=False,
     )
 
     verdict_by_company = {v.company_id: v for v in verdicts}
 
     # 2. Outcome evaluation (Ground Truth from Crustdata funding rounds)
     horizon_end = as_of + timedelta(days=int(horizon_months * 30.4))
-    outcome_credits = CreditCounter(budget=50)
+    outcome_credits = CreditCounter(budget=200)
 
     cases: list[BacktestCase] = []
-    total_blocked_facts = 0
+
+    # Calculate blocked facts from the time firewall
+    run_events = event_bus.get_events(b_id)
+    total_blocked_facts = sum(
+        int(e.data.get("blocked_count", 0))
+        for e in run_events
+        if e.kind == "firewall" and isinstance(e.data, dict)
+    )
 
     back_count = 0
     back_raised_count = 0
@@ -141,19 +149,42 @@ async def run_backtest(
                 fields=["basic_info", "funding", "headcount"],
                 run_credits=outcome_credits,
             )
-            rounds = full_data.get("funding", {}).get("rounds", []) or []
+            funding_data = full_data.get("funding", {})
+            rounds = (
+                funding_data.get("milestones", [])
+                or funding_data.get("rounds", [])
+                or funding_data.get("funding_rounds", [])
+                or []
+            )
             hcount = full_data.get("headcount", {})
-            hc_num = float(hcount.get("headcount") or 1.0)
+            hc_num = float(hcount.get("total") or hcount.get("headcount") or 1.0)
             headcount_rankings.append((domain, hc_num))
 
             for r in rounds:
                 if not isinstance(r, dict):
                     continue
-                r_date = _parse_date(r.get("announced_on") or r.get("date") or r.get("round_date"))
+                r_date = _parse_date(
+                    r.get("date")
+                    or r.get("announced_on")
+                    or r.get("round_date")
+                    or r.get("funding_date")
+                    or r.get("announced_date")
+                    or r.get("close_date")
+                )
                 if r_date and as_of < r_date <= horizon_end:
                     raised_in_horizon = True
                     r_id = f"outcome_{domain}_{r_date}"
                     outcome_fact_ids.append(r_id)
+
+            if not raised_in_horizon:
+                last_r_date = _parse_date(
+                    funding_data.get("last_round_date")
+                    or funding_data.get("latest_funding_date")
+                    or funding_data.get("last_funding_at")
+                )
+                if last_r_date and as_of < last_r_date <= horizon_end:
+                    raised_in_horizon = True
+                    outcome_fact_ids.append(f"outcome_{domain}_{last_r_date}")
         except (NoData, Exception) as exc:
             logger.info("Outcome lookup for %s: %s", domain, exc)
             headcount_rankings.append((domain, 1.0))

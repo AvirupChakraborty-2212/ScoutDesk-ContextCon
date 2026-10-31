@@ -1026,16 +1026,30 @@ async function startBacktest() {
         const poll = async () => {
             try {
                 const rr = await fetch(`/api/backtest/${btId}`);
+                if (!rr.ok) throw new Error(`HTTP ${rr.status}`);
                 const dd = await rr.json();
-                if (dd.back_hit_rate !== undefined) renderBacktest(dd);
-                else setTimeout(poll, 1500);
+                if (dd.failed) {
+                    toast('Backtest failed: ' + (dd.error || 'Execution error'), true);
+                    $('backtest-content').innerHTML = '';
+                    $('backtest-empty').style.display = 'flex';
+                    return;
+                }
+                if (dd.back_hit_rate !== undefined) {
+                    renderBacktest(dd);
+                } else {
+                    const subText = $('backtest-content').querySelector('.empty-sub');
+                    if (subText && dd.events_count) {
+                        subText.textContent = `Running backtest (${dd.events_count} evaluation steps recorded)...`;
+                    }
+                    setTimeout(poll, 1200);
+                }
             } catch (e) {
                 toast('Backtest failed: ' + e.message, true);
                 $('backtest-content').innerHTML = '';
                 $('backtest-empty').style.display = 'flex';
             }
         };
-        setTimeout(poll, 1000);
+        setTimeout(poll, 800);
     } catch (e) {
         toast('Backtest failed: ' + e.message, true);
         $('backtest-content').innerHTML = '';

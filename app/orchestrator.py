@@ -33,7 +33,7 @@ from app.config import RUN_BUDGET_CREDITS, RUNS_DIR, THESES_DIR, TOP_N
 from app.crust import CreditCounter
 from app.events import EventBus, bus as global_bus
 from app.ledger import FactLedger, LedgerView
-from app.models import AgentTask, Event, Fact, Score, Verdict
+from app.models import AgentTask, Event, Fact, Memo, MemoSentence, Score, Verdict
 from app.scorer import score as compute_score
 from app.verifier import verify as verify_memo
 
@@ -158,6 +158,70 @@ async def _run_company_pipeline(
         )
     )
 
+    # In historical simulation / backtest mode (as_of is set):
+    # Fast-track verdict computation using the deterministic time-firewalled scorer
+    # and IC rules. This eliminates 60-80 redundant LLM generation calls across cohorts,
+    # preventing Gemini 429 rate-limit exhaustion and allowing backtests to finish in seconds.
+    if as_of:
+        profile = ic_agent._build_company_profile(view, company_id, thesis, score, all_unknowns)
+        company_name = profile.get("name") or company_id
+
+        min_confidence = float(thesis.get("min_confidence_for_auto_verdict", 0.6))
+        thresholds = thesis.get("verdict_thresholds", {"back": 70, "watch": 50})
+        back_thresh = float(thresholds.get("back", 70))
+        watch_thresh = float(thresholds.get("watch", 50))
+
+        flags: list[str] = []
+        if score.confidence < 0.7:
+            flags.append("low_confidence")
+
+        if (
+            score.confidence < min_confidence
+            or "founders_unidentified" in all_unknowns
+            or "ambiguous_identity" in all_unknowns
+            or (score.parts.get("founders", 0) < 20 and score.confidence < 0.5)
+        ):
+            decision = "human_review"
+        elif score.total >= back_thresh:
+            decision = "back"
+        elif score.total >= watch_thresh:
+            decision = "watch"
+        else:
+            decision = "pass"
+
+        rationale = ic_agent._build_detailed_rationale(
+            decision, score, company_name, profile, thesis, all_unknowns
+        )
+
+        memo_sections = {
+            "summary": [MemoSentence(template=r, rendered=r) for r in (score.reasons or [rationale])[:3]]
+        }
+        fast_memo = Memo(company_id=company_id, sections=memo_sections)
+
+        verdict = Verdict(
+            company_id=company_id,
+            name=company_name,
+            decision=decision,
+            score=score,
+            memo=fast_memo,
+            rationale=rationale,
+            flags=flags,
+            company_profile=profile,
+        )
+
+        await bus.emit(
+            Event(
+                run_id=run_id,
+                ts=_now(),
+                agent="ic",
+                company_id=company_id,
+                kind="verdict",
+                message=f"Simulation Verdict for {company_name}: {decision.upper()} ({score.total:.1f}/100)",
+                data={"verdict": verdict.model_dump(mode="json")},
+            )
+        )
+        return verdict
+
     # 5. Writer -> Skeptic -> Verifier loop
     w_task = AgentTask(run_id=run_id, agent="writer", company_id=company_id, budget_credits=0)
     memo = await writer_agent.run(
@@ -231,6 +295,7 @@ async def run_pipeline(
     as_of: date | None = None,
     top_n: int = TOP_N,
     bus: EventBus | None = None,
+    finish_run: bool = True,
 ) -> list[Verdict]:
     """Execute the full ScoutDesk multi-agent investment evaluation run.
 
@@ -360,5 +425,6 @@ async def run_pipeline(
         )
     )
 
-    event_bus.finish(run_id)
+    if finish_run:
+        event_bus.finish(run_id)
     return allocated_verdicts

@@ -58,13 +58,15 @@ class EventBus:
     # Registration
     # ------------------------------------------------------------------
 
-    def create_run(self, run_id: str) -> None:
+    def create_run(self, run_id: str, *, reset: bool = False) -> None:
         """Register a new run.
 
         Must be called before any ``emit`` or ``subscribe`` calls for *run_id*.
-        Calling it twice for the same id resets the queue and history, which
-        is useful in tests but should not happen in production.
+        If the run already exists and *reset* is False, this is a no-op so that
+        subordinate pipeline stages do not clear active run queues or history.
         """
+        if run_id in self._queues and not reset:
+            return
         self._queues[run_id] = asyncio.Queue()
         self._history[run_id] = []
 

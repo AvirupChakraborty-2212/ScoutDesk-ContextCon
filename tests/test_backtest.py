@@ -48,3 +48,5 @@ def test_backtest_report_metrics():
     assert report.pass_hit_rate == 0.00
     assert report.base_rate == 0.40
     assert report.facts_blocked == 140
+
+

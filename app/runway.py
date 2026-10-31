@@ -342,7 +342,14 @@ async def run_runway_watch(
         if headcount_val is None or last_round_amount is None:
             level = "unknown"
             est_months_left = None
-            assumptions.append("Missing headcount or funding capital baseline; cash-out date unknowable without guessing")
+            if not company_data or not binfo:
+                warning_signals = [f"Entity not found: Crustdata has no corporate registry matches for '{company_id}'."]
+                assumptions = [
+                    f"Domain '{company_id}' returned 0 matches in business registry.",
+                    "Try an active portfolio company: chargetrip.com, sarvam.ai, composio.dev, devzero.io, rupeecircle.com",
+                ]
+            else:
+                assumptions.append("Missing headcount or funding capital baseline; cash-out date unknowable without guessing")
         else:
             monthly_burn = max(headcount_val * cost_per_head, 5000.0)
             total_runway_months = last_round_amount / monthly_burn

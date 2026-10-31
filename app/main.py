@@ -245,11 +245,18 @@ async def get_fact(fact_id: str):
 @app.post("/api/backtest")
 async def start_backtest(req: BacktestRequest, background_tasks: BackgroundTasks):
     run_id = f"bt-{uuid.uuid4().hex[:8]}"
+    global_bus.create_run(run_id)
 
-    try:
-        as_of_dt = datetime.strptime(req.as_of.strip(), "%Y-%m-%d").date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid as_of date format. Use YYYY-MM-DD")
+    as_of_str = req.as_of.strip()
+    as_of_dt = None
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%m-%d-%Y", "%Y/%m/%d", "%d/%m/%Y"):
+        try:
+            as_of_dt = datetime.strptime(as_of_str, fmt).date()
+            break
+        except ValueError:
+            pass
+    if as_of_dt is None:
+        raise HTTPException(status_code=400, detail="Invalid as_of date format. Use YYYY-MM-DD or DD-MM-YYYY")
 
     async def _execute_backtest():
         try:
@@ -263,6 +270,11 @@ async def start_backtest(req: BacktestRequest, background_tasks: BackgroundTasks
             _BACKTEST_RESULTS[run_id] = report
         except Exception as exc:
             logger.error("Backtest %s failed: %s", run_id, exc, exc_info=True)
+            _BACKTEST_RESULTS[run_id] = {
+                "backtest_id": run_id,
+                "failed": True,
+                "error": str(exc),
+            }
 
     background_tasks.add_task(_execute_backtest)
 
@@ -278,11 +290,16 @@ async def start_backtest(req: BacktestRequest, background_tasks: BackgroundTasks
 @app.get("/api/backtest/{backtest_id}")
 async def get_backtest(backtest_id: str):
     report = _BACKTEST_RESULTS.get(backtest_id)
-    if report:
+    if isinstance(report, BacktestReport):
         return report.model_dump(mode="json")
+    if isinstance(report, dict):
+        return report
 
     # If still processing, return status with current events
-    events = global_bus.get_events(backtest_id)
+    try:
+        events = global_bus.get_events(backtest_id)
+    except KeyError:
+        events = []
     return {
         "backtest_id": backtest_id,
         "completed": False,
