@@ -238,7 +238,6 @@ function scrollTraceToBottom(force = false) {
 }
 
 function ensureLane(companyId) {
-
     if (state.lanes[companyId]) return;
     hideTraceEmpty();
 
@@ -252,6 +251,7 @@ function ensureLane(companyId) {
     header.tabIndex = 0;
     header.innerHTML = `
     <span class="swimlane-name">${esc(companyId)}</span>
+    <span class="swimlane-count" id="lc-${cssId(companyId)}" hidden>0 events</span>
     <span class="swimlane-status running" id="ls-${cssId(companyId)}">Running</span>
     ${ICON_CHEVRON}`;
     const toggle = () => lane.classList.toggle('collapsed');
@@ -266,15 +266,26 @@ function ensureLane(companyId) {
     lane.appendChild(header);
     lane.appendChild(events);
     $('trace-body').appendChild(lane);
-    state.lanes[companyId] = { el: lane, eventsEl: events };
+    state.lanes[companyId] = {
+        el: lane,
+        eventsEl: events,
+        countEl: $(`lc-${cssId(companyId)}`),
+        count: 0,
+    };
     scrollTraceToBottom();
 }
 
 function appendLaneEvent(companyId, ev) {
     const lane = state.lanes[companyId];
     if (!lane) return;
+    lane.count = (lane.count || 0) + 1;
+    if (lane.countEl) {
+        lane.countEl.textContent = `${lane.count} ${lane.count === 1 ? 'event' : 'events'}`;
+        lane.countEl.hidden = false;
+    }
     lane.eventsEl.appendChild(buildEventRow(ev));
-    scrollTraceToBottom();
+    // Auto-scroll the lane itself so the newest item is visible
+    lane.eventsEl.scrollTop = lane.eventsEl.scrollHeight;
 }
 
 function setLaneStatus(companyId, status) {
