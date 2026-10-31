@@ -1,0 +1,18 @@
+name: "Fintech Infrastructure & Embedded Finance (India & Emerging Markets)"
+stage_focus: pre_round
+geographies: [India, Southeast Asia]
+sectors: [fintech, fintech infrastructure, payments, embedded finance, banking, credit, identity, compliance]
+company:
+  founded_after: 2022-01-01
+  headcount: {min: 2, max: 60}
+  max_rounds: 1
+founders:
+  operator_signal: {min_prior_company_headcount: 500, min_years: 3}
+  repeat_founder_bonus: true
+weights: {founders: 0.45, thesis_fit: 0.25, signals: 0.15, momentum: 0.15}
+verdict_thresholds: {back: 70, watch: 50}
+min_confidence_for_auto_verdict: 0.6
+runway:
+  monthly_cost_per_head_usd: {India: 2500, default: 3500}
+  alert_months_left: 6
+

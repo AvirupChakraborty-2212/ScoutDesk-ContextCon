@@ -1,0 +1,18 @@
+name: "Global Developer Tools & Cloud Infrastructure"
+stage_focus: seed
+geographies: [US, India, Europe, Global]
+sectors: [developer tools, devtools, cloud infrastructure, kubernetes, observability, open source, api, cyber security]
+company:
+  founded_after: 2021-01-01
+  headcount: {min: 5, max: 80}
+  max_rounds: 2
+founders:
+  operator_signal: {min_prior_company_headcount: 300, min_years: 2}
+  repeat_founder_bonus: true
+weights: {founders: 0.35, thesis_fit: 0.35, signals: 0.15, momentum: 0.15}
+verdict_thresholds: {back: 70, watch: 50}
+min_confidence_for_auto_verdict: 0.6
+runway:
+  monthly_cost_per_head_usd: {India: 2500, US: 15000, Europe: 10000, default: 8000}
+  alert_months_left: 6
+

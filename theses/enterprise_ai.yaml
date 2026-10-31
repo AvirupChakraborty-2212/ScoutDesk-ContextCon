@@ -1,0 +1,18 @@
+name: "Enterprise Vertical AI & Workflow Automation"
+stage_focus: seed
+geographies: [US, India, Global]
+sectors: [artificial intelligence, generative ai, vertical ai, workflow automation, enterprise software, b2b saas, agents]
+company:
+  founded_after: 2022-06-01
+  headcount: {min: 3, max: 50}
+  max_rounds: 1
+founders:
+  operator_signal: {min_prior_company_headcount: 500, min_years: 2}
+  repeat_founder_bonus: true
+weights: {founders: 0.40, thesis_fit: 0.30, signals: 0.20, momentum: 0.10}
+verdict_thresholds: {back: 70, watch: 50}
+min_confidence_for_auto_verdict: 0.6
+runway:
+  monthly_cost_per_head_usd: {India: 2500, US: 15000, default: 7500}
+  alert_months_left: 6
+
