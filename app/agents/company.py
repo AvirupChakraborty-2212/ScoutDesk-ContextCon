@@ -506,7 +506,6 @@ async def run(
         for api_field, fact_key, unit in _hiring_map:
             raw_val = hiring.get(api_field)
             if raw_val is None:
-                # Try alternate field names Crustdata may use
                 alternates = {
                     "openings_count": ["total_openings", "open_roles", "count"],
                     "openings_growth_percent": ["growth_percent", "openings_growth"],
@@ -516,9 +515,20 @@ async def run(
                     raw_val = hiring.get(alt)
                     if raw_val is not None:
                         break
+
+            # Handle nested dicts (e.g. {'mom': 0.0, 'qoq': -0.66, 'yoy': 0.0})
+            if isinstance(raw_val, dict):
+                val_num = raw_val.get("yoy")
+                if val_num is None:
+                    val_num = raw_val.get("qoq")
+                if val_num is None:
+                    val_num = raw_val.get("mom")
+                raw_val = float(val_num) if val_num is not None else 0.0
+
             if raw_val is None:
                 unknowns.append(f"missing: {fact_key}")
                 continue
+
             fid = _make_fact(
                 ledger=ledger,
                 company_id=company_id,
@@ -550,7 +560,6 @@ async def run(
     founders_list: list[str] = []
 
     if people:
-        # Crustdata may structure people as a list or a dict with roles
         people_entries: list[dict[str, Any]] = []
         if isinstance(people, list):
             people_entries = people
@@ -572,7 +581,7 @@ async def run(
                 company_id=company_id,
                 subject="company",
                 key="company.founders",
-                value=json.dumps(founders_list),
+                value=founders_list,
                 unit=None,
                 endpoint=ENRICH_ENDPOINT,
                 field_path="people",
@@ -605,9 +614,30 @@ async def run(
         status = "partial"
 
     # --- competitors ---
-    competitors: list[dict[str, Any]] = enriched.get("competitors") or []
-    if competitors:
-        for comp in competitors[:5]:
+    raw_competitors = enriched.get("competitors") or {}
+    competitors_list: list[dict[str, Any]] = []
+    if isinstance(raw_competitors, dict):
+        for k in ("organic_seo", "paid_seo", "all_domains", "competitor_domains", "competitors"):
+            items = raw_competitors.get(k, [])
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, str) and item.strip():
+                        competitors_list.append({"domain": item.strip().lower(), "name": item.strip()})
+                    elif isinstance(item, dict):
+                        d = item.get("domain") or item.get("website")
+                        if d:
+                            competitors_list.append({"domain": str(d).strip().lower(), "name": str(item.get("name") or d)})
+    elif isinstance(raw_competitors, list):
+        for item in raw_competitors:
+            if isinstance(item, str) and item.strip():
+                competitors_list.append({"domain": item.strip().lower(), "name": item.strip()})
+            elif isinstance(item, dict):
+                d = item.get("domain") or item.get("website")
+                if d:
+                    competitors_list.append({"domain": str(d).strip().lower(), "name": str(item.get("name") or d)})
+
+    if competitors_list:
+        for comp in competitors_list[:5]:
             comp_domain: str = str(comp.get("domain") or comp.get("website") or "")
             comp_name: str = str(comp.get("name") or comp.get("company_name") or "")
             if not comp_domain:

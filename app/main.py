@@ -193,6 +193,15 @@ async def stream_run_events(run_id: str):
     )
 
 
+@app.get("/api/runs/last")
+async def get_last_run():
+    """Return the most recent run results."""
+    if not _RUN_RESULTS:
+        raise HTTPException(status_code=404, detail="No completed runs available")
+    last_run_id = list(_RUN_RESULTS.keys())[-1]
+    return await get_run(last_run_id)
+
+
 @app.get("/api/runs/{run_id}")
 async def get_run(run_id: str):
     events = global_bus.get_events(run_id)

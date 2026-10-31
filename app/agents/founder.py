@@ -164,8 +164,17 @@ async def run(
     for f in company_facts:
         if f.key == "company.name" and f.value:
             company_name = str(f.value)
-        elif f.key == "company.founders" and isinstance(f.value, list):
-            founder_names.extend([str(name).strip() for name in f.value if name])
+        elif f.key == "company.founders":
+            if isinstance(f.value, list):
+                founder_names.extend([str(name).strip() for name in f.value if name])
+            elif isinstance(f.value, str):
+                try:
+                    parsed = json.loads(f.value)
+                    if isinstance(parsed, list):
+                        founder_names.extend([str(name).strip() for name in parsed if name])
+                except Exception:
+                    if f.value.strip():
+                        founder_names.append(f.value.strip())
 
     # Deduplicate founder names
     unique_founders: list[str] = []

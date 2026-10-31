@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -19,7 +19,7 @@ class Fact(BaseModel):
     company_id: str                             # crustdata company id or domain
     subject: str                                # "company" | "founder:<n>" | "competitor:<domain>"
     key: str                                    # "funding.round", "founder.prior_employer", …
-    value: Union[float, int, str, bool, None]
+    value: Any = None
     unit: Optional[str] = None                  # "%", "INR", "USD", "people", "months", "date"
     endpoint: str                               # "company/enrich" | "derived"
     field_path: str                             # "headcount.growth_percent.yoy"
@@ -39,7 +39,7 @@ class AgentTask(BaseModel):
     run_id: str
     agent: str
     company_id: str
-    budget_credits: int
+    budget_credits: int = 10
 
 
 class AgentResult(BaseModel):
