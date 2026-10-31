@@ -76,17 +76,18 @@ def _render_sentence(template: str, fact_map: dict[str, Fact]) -> str:
 
 
 def _build_fallback_memo(company_id: str, score: Score, visible_facts: list[Fact]) -> Memo:
-    """Construct a deterministic template memo from score reasons when LLM is unavailable."""
+    """Construct a comprehensive, deterministic template memo from ledger facts and score reasons."""
     fact_map = {f.id: f for f in visible_facts}
     sections: dict[str, list[MemoSentence]] = {
         "summary": [],
         "founders": [],
+        "market": [],
         "signals": [],
         "risks": [],
         "bear_case": [],
     }
 
-    # Summary
+    # 1. Summary
     name_facts = [f for f in visible_facts if f.key == "company.name"]
     name_fid = name_facts[0].id if name_facts else None
     c_name = str(name_facts[0].value) if name_facts else company_id
@@ -94,9 +95,141 @@ def _build_fallback_memo(company_id: str, score: Score, visible_facts: list[Fact
     s_template = f"Investment evaluation for {c_name} with thesis score of {score.total:.1f}/100 (confidence {score.confidence:.0%})."
     sections["summary"].append(MemoSentence(template=s_template, fact_ids=[name_fid] if name_fid else [], rendered=s_template))
 
-    # Incorporate reasons with fact citations
+    sector_facts = [f for f in visible_facts if f.key == "company.sector"]
+    country_facts = [f for f in visible_facts if f.key == "company.country"]
+    year_facts = [f for f in visible_facts if f.key == "company.founded_year"]
+    desc_facts = [f for f in visible_facts if f.key == "company.description"]
+
+    id_parts = []
+    id_fids = []
+    if sector_facts and sector_facts[0].value:
+        id_parts.append(f"operates in {sector_facts[0].value}")
+        id_fids.append(sector_facts[0].id)
+    if country_facts and country_facts[0].value:
+        id_parts.append(f"headquartered in {country_facts[0].value}")
+        id_fids.append(country_facts[0].id)
+    if year_facts and year_facts[0].value:
+        id_parts.append(f"founded in {year_facts[0].value}")
+        id_fids.append(year_facts[0].id)
+
+    if id_parts:
+        s_id = f"{c_name} {', '.join(id_parts)}."
+        sections["summary"].append(MemoSentence(template=s_id, fact_ids=id_fids, rendered=s_id))
+
+    if desc_facts and desc_facts[0].value:
+        d_val = str(desc_facts[0].value)
+        d_trunc = d_val[:220] + "..." if len(d_val) > 220 else d_val
+        s_desc = f"Business profile: {d_trunc}"
+        sections["summary"].append(MemoSentence(template=s_desc, fact_ids=[desc_facts[0].id], rendered=s_desc))
+
+    # 2. Founders
+    founder_subjects = sorted(list(set(f.subject for f in visible_facts if f.subject.startswith("founder:"))))
+    if founder_subjects:
+        for subj in founder_subjects:
+            f_name_f = [f for f in visible_facts if f.subject == subj and f.key == "founder.name"]
+            f_li_f = [f for f in visible_facts if f.subject == subj and f.key == "founder.linkedin_url"]
+            f_hc_f = [f for f in visible_facts if f.subject == subj and f.key == "founder.prior_employer_headcount"]
+            f_exp_f = [f for f in visible_facts if f.subject == subj and f.key == "founder.years_experience"]
+            f_rf_f = [f for f in visible_facts if f.subject == subj and f.key == "founder.is_repeat_founder"]
+            role_f = [f for f in visible_facts if f.subject == subj and "founder.role" in f.key]
+
+            if not f_name_f:
+                continue
+
+            f_name = str(f_name_f[0].value)
+            f_fids = [f_name_f[0].id]
+
+            prior_desc = ""
+            if role_f:
+                roles_str = "; ".join(str(rf.value) for rf in role_f[:2])
+                prior_desc += f" with prior background: {roles_str}"
+                f_fids.extend(rf.id for rf in role_f[:2])
+
+            if f_hc_f and f_hc_f[0].value:
+                prior_desc += f" (prior organization scale: {int(float(f_hc_f[0].value)):,} employees)"
+                f_fids.append(f_hc_f[0].id)
+
+            if f_exp_f and f_exp_f[0].value:
+                prior_desc += f" and {int(float(f_exp_f[0].value))} years professional experience"
+                f_fids.append(f_exp_f[0].id)
+
+            repeat_str = " (repeat founder)" if (f_rf_f and f_rf_f[0].value is True) else ""
+            if f_rf_f:
+                f_fids.append(f_rf_f[0].id)
+
+            f_sentence = f"Executive leadership includes {f_name}{repeat_str}{prior_desc}."
+            sections["founders"].append(MemoSentence(template=f_sentence, fact_ids=f_fids, rendered=f_sentence))
+    else:
+        # Check flat founder facts
+        flat_f = [f for f in visible_facts if f.key == "company.founders"]
+        if flat_f and flat_f[0].value:
+            v = flat_f[0].value
+            names = v if isinstance(v, list) else [v]
+            f_sentence = f"Identified company founders from registry: {', '.join(str(n) for n in names)}."
+            sections["founders"].append(MemoSentence(template=f_sentence, fact_ids=[flat_f[0].id], rendered=f_sentence))
+        else:
+            no_f = f"No executive founder profiles could be autonomously verified in registry data for {c_name}."
+            sections["founders"].append(MemoSentence(template=no_f, fact_ids=[], rendered=no_f))
+
+    # 3. Market & Capital
+    funding_fids: list[str] = []
+    funding_parts: list[str] = []
+
+    raised_f = [f for f in visible_facts if f.key == "company.total_raised_usd"]
+    if raised_f and raised_f[0].value:
+        try:
+            r_usd = float(raised_f[0].value)
+            funding_parts.append(f"total funding raised of ${r_usd / 1_000_000:.1f}M USD")
+            funding_fids.append(raised_f[0].id)
+        except (ValueError, TypeError):
+            pass
+
+    rc_f = [f for f in visible_facts if f.key == "company.funding_rounds_count"]
+    if rc_f and rc_f[0].value is not None:
+        funding_parts.append(f"across {rc_f[0].value} funding round(s)")
+        funding_fids.append(rc_f[0].id)
+
+    if funding_parts:
+        m_sentence = f"Capital structure: {c_name} has {', '.join(funding_parts)}."
+        sections["market"].append(MemoSentence(template=m_sentence, fact_ids=funding_fids, rendered=m_sentence))
+
+    # Competitor facts
+    comp_f = [f for f in visible_facts if f.key.startswith("competitor.") and f.key.endswith(".name")]
+    if comp_f:
+        comp_names = [str(cf.value) for cf in comp_f[:4]]
+        c_sent = f"Direct market competitors identified in sector: {', '.join(comp_names)}."
+        sections["market"].append(MemoSentence(template=c_sent, fact_ids=[cf.id for cf in comp_f[:4]], rendered=c_sent))
+
+    # 4. Signals & Traction
+    traction_fids: list[str] = []
+    traction_parts: list[str] = []
+
+    hc_f = [f for f in visible_facts if f.key == "company.headcount_total"]
+    if hc_f and hc_f[0].value:
+        traction_parts.append(f"team size of {hc_f[0].value} employees")
+        traction_fids.append(hc_f[0].id)
+
+    yoy_f = [f for f in visible_facts if f.key == "company.headcount_yoy"]
+    if yoy_f and yoy_f[0].value is not None:
+        try:
+            y_val = float(yoy_f[0].value)
+            traction_parts.append(f"{y_val:+.1f}% YoY headcount growth")
+            traction_fids.append(yoy_f[0].id)
+        except (ValueError, TypeError):
+            pass
+
+    if traction_parts:
+        t_sentence = f"Headcount traction: {c_name} reports {', '.join(traction_parts)}."
+        sections["signals"].append(MemoSentence(template=t_sentence, fact_ids=traction_fids, rendered=t_sentence))
+
+    openings_f = [f for f in visible_facts if f.key == "openings.last_90d" or f.key == "openings.count"]
+    if openings_f and openings_f[0].value is not None:
+        o_val = int(float(openings_f[0].value))
+        o_sentence = f"Active hiring momentum: {o_val} job opening(s) recorded in the past 90 days."
+        sections["signals"].append(MemoSentence(template=o_sentence, fact_ids=[openings_f[0].id], rendered=o_sentence))
+
+    # 5. Risks & Score Reasons
     for reason in score.reasons:
-        # Extract [F1, F2] citations from reason string
         m = re.search(r"\[(.*?)\]", reason)
         cited_ids: list[str] = []
         clean_text = reason
@@ -105,20 +238,26 @@ def _build_fallback_memo(company_id: str, score: Score, visible_facts: list[Fact
             clean_text = reason[:m.start()].strip()
 
         sentence = MemoSentence(template=clean_text, fact_ids=cited_ids, rendered=clean_text)
-
         r_lower = reason.lower()
-        if "founder" in r_lower or "operator" in r_lower:
-            sections["founders"].append(sentence)
-        elif "hiring" in r_lower or "openings" in r_lower or "news" in r_lower:
-            sections["signals"].append(sentence)
-        elif "thesis" in r_lower or "headcount" in r_lower:
-            sections["summary"].append(sentence)
-        else:
+        if "mismatch" in r_lower or "outside" in r_lower or "too many" in r_lower or "no signal" in r_lower:
             sections["risks"].append(sentence)
+        elif "operator" in r_lower or "repeat founder" in r_lower:
+            if not any(sentence.template == s.template for s in sections["founders"]):
+                sections["founders"].append(sentence)
+        elif "hiring" in r_lower or "news" in r_lower:
+            if not any(sentence.template == s.template for s in sections["signals"]):
+                sections["signals"].append(sentence)
+        else:
+            if not any(sentence.template == s.template for s in sections["summary"]):
+                sections["summary"].append(sentence)
 
-    if not sections["bear_case"]:
-        b_text = f"Early-stage venture risk: pre-round evaluation subject to market execution and team retention."
-        sections["bear_case"].append(MemoSentence(template=b_text, fact_ids=[], rendered=b_text))
+    if not sections["risks"]:
+        r_text = f"Thesis alignment risk: early-stage venture execution requires ongoing verification of key milestones."
+        sections["risks"].append(MemoSentence(template=r_text, fact_ids=[], rendered=r_text))
+
+    # 6. Bear Case
+    b_text = f"Bear case: Competitive saturation from incumbents and execution headwinds during stage expansion."
+    sections["bear_case"].append(MemoSentence(template=b_text, fact_ids=[], rendered=b_text))
 
     return Memo(company_id=company_id, sections=sections, removed_by_verifier=0, revisions=0)
 

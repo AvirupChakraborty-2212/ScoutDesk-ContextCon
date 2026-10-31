@@ -308,6 +308,16 @@ function buildEventRow(ev) {
     return row;
 }
 
+function formatUSD(num) {
+    if (num === null || num === undefined) return '—';
+    const val = Number(num);
+    if (isNaN(val)) return String(num);
+    if (val >= 1e9) return `$${(val / 1e9).toFixed(1)}B`;
+    if (val >= 1e6) return `$${(val / 1e6).toFixed(1)}M`;
+    if (val >= 1e3) return `$${(val / 1e3).toFixed(1)}K`;
+    return `$${val.toLocaleString()}`;
+}
+
 // ════════════════════════════════════════════════════════════
 // Verdicts
 // ════════════════════════════════════════════════════════════
@@ -336,9 +346,104 @@ function buildVerdictCard(v) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMemo(v); }
     });
 
-    const score = v.score;
+    const score = v.score || {};
     const parts = score.parts || {};
+    const prof = v.company_profile || {};
+    const cap = prof.capital || {};
+    const trac = prof.traction || {};
+    const founders = prof.founders || [];
+    const signals = prof.signals || {};
+    const thresholds = prof.threshold_analysis || [];
 
+    // Ring & Score
+    const ringColor = (score.total || 0) >= 70 ? 'var(--sage)'
+        : (score.total || 0) >= 50 ? 'var(--sand)' : 'var(--rose)';
+    const ringPct = Math.min(100, Math.max(0, score.total || 0));
+
+    // Metrics Pills
+    let founderText = 'Unverified';
+    if (founders.length) {
+        const f0 = founders[0];
+        let pOrg = '';
+        if (f0.prior_company) {
+            const cparts = f0.prior_company.split(' at ');
+            pOrg = cparts[1] || cparts[0];
+        } else if (f0.prior_headcount) {
+            pOrg = `${Number(f0.prior_headcount).toLocaleString()} org`;
+        }
+        founderText = `${esc(f0.name)}${founders.length > 1 ? ` +${founders.length - 1}` : ''}${pOrg ? ` (ex-${esc(pOrg)})` : ''}`;
+    }
+
+    let capitalText = 'Pre-seed / Undisclosed';
+    if (cap.total_raised_usd) {
+        capitalText = `${formatUSD(cap.total_raised_usd)} • ${cap.rounds_count || 1} rd${(cap.rounds_count || 1) === 1 ? '' : 's'}`;
+        if (cap.stage) capitalText += ` (${esc(cap.stage)})`;
+    } else if (cap.stage) {
+        capitalText = cap.stage;
+    }
+
+    let headcountText = 'Headcount: —';
+    if (trac.headcount_total !== null && trac.headcount_total !== undefined) {
+        headcountText = `${trac.headcount_total} employees`;
+        if (trac.headcount_yoy !== null && trac.headcount_yoy !== undefined) {
+            headcountText += ` (${trac.headcount_yoy > 0 ? '+' : ''}${trac.headcount_yoy.toFixed(1)}% YoY)`;
+        }
+    }
+
+    let signalsText = '0 active postings';
+    if (signals.openings_count !== null && signals.openings_count !== undefined && signals.openings_count > 0) {
+        signalsText = `${signals.openings_count} open role${signals.openings_count === 1 ? '' : 's'}`;
+    } else if (prof.competitors && prof.competitors.length) {
+        signalsText = `${prof.competitors.length} competitors tracked`;
+    }
+
+    const metricsHtml = `
+    <div class="card-metrics-grid">
+      <div class="card-metric-pill" title="Leadership">
+        <span class="card-metric-icon">👥</span>
+        <div class="card-metric-body">
+          <span class="card-metric-label">Leadership</span>
+          <span class="card-metric-val">${founderText}</span>
+        </div>
+      </div>
+      <div class="card-metric-pill" title="Capital & Stage">
+        <span class="card-metric-icon">💰</span>
+        <div class="card-metric-body">
+          <span class="card-metric-label">Capital Raised</span>
+          <span class="card-metric-val">${capitalText}</span>
+        </div>
+      </div>
+      <div class="card-metric-pill" title="Headcount & Growth">
+        <span class="card-metric-icon">📈</span>
+        <div class="card-metric-body">
+          <span class="card-metric-label">Headcount / Momentum</span>
+          <span class="card-metric-val">${headcountText}</span>
+        </div>
+      </div>
+      <div class="card-metric-pill" title="Talent & Market">
+        <span class="card-metric-icon">🎯</span>
+        <div class="card-metric-body">
+          <span class="card-metric-label">Hiring & Market</span>
+          <span class="card-metric-val">${signalsText}</span>
+        </div>
+      </div>
+    </div>`;
+
+    // Threshold Highlights (up to 3 concrete reasons)
+    let thresholdPills = '';
+    const fails = thresholds.filter((t) => t.status === 'fail');
+    const passes = thresholds.filter((t) => t.status === 'pass');
+
+    if (fails.length) {
+        thresholdPills = fails.slice(0, 2).map((f) =>
+            `<span class="threshold-pill fail">⚠️ ${esc(f.detail)}</span>`).join('');
+    }
+    if (passes.length && fails.length < 2) {
+        thresholdPills += passes.slice(0, 2 - fails.length).map((p) =>
+            `<span class="threshold-pill pass">✓ ${esc(p.detail)}</span>`).join('');
+    }
+
+    // Score Bars
     const barsHtml = Object.keys(parts).map((k) => {
         const val = Number(parts[k]) || 0;
         const pct = Math.min(100, Math.max(0, val));
@@ -352,24 +457,26 @@ function buildVerdictCard(v) {
     const flagsHtml = (v.flags || []).map((f) =>
         `<span class="flag-chip">${esc(f)}</span>`).join('');
 
-    const ringColor = score.total >= 70 ? 'var(--sage)'
-        : score.total >= 50 ? 'var(--sand)' : 'var(--rose)';
-    const ringPct = Math.min(100, Math.max(0, score.total));
-
     card.innerHTML = `
     <div class="verdict-card-header">
       <div class="verdict-title">
         <span class="verdict-name">${esc(v.name || v.company_id)}</span>
         <span class="badge ${esc(v.decision)}">${decisionLabel(v.decision)}</span>
       </div>
-      <div class="ring" style="--p:${ringPct};--ring:${ringColor}" title="Score ${score.total.toFixed(1)} / 100">
-        <span>${Math.round(score.total)}</span>
+      <div class="ring" style="--p:${ringPct};--ring:${ringColor}" title="Score ${(score.total || 0).toFixed(1)} / 100">
+        <span>${Math.round(score.total || 0)}</span>
       </div>
     </div>
+    ${metricsHtml}
+    ${thresholdPills ? `<div class="threshold-tags-wrap">${thresholdPills}</div>` : ''}
     <div class="score-bars">${barsHtml}</div>
-    <div class="confidence-row">Confidence <b>${(score.confidence * 100).toFixed(0)}%</b></div>
+    <div class="confidence-row">Data Confidence <b>${((score.confidence || 0) * 100).toFixed(0)}%</b></div>
     ${flagsHtml ? `<div class="flags-row">${flagsHtml}</div>` : ''}
-    ${v.rationale ? `<div class="rationale-text">${esc(v.rationale)}</div>` : ''}`;
+    ${v.rationale ? `<div class="rationale-text">${esc(v.rationale)}</div>` : ''}
+    <button type="button" class="card-memo-btn">
+      <span>📊 View Full End-to-End Analysis & Memo →</span>
+    </button>`;
+
     return card;
 }
 
@@ -382,33 +489,313 @@ function decisionLabel(d) {
 // ════════════════════════════════════════════════════════════
 function openMemo(v) {
     const panel = $('memo-panel');
-    $('memo-box-title').textContent = v.name || v.company_id;
+    $('memo-box-title').textContent = `${v.name || v.company_id} (${v.company_id})`;
 
     const badge = $('memo-verdict-badge');
     badge.className = `badge ${v.decision}`;
     badge.textContent = decisionLabel(v.decision);
 
+    const prof = v.company_profile || {};
+    const cap = prof.capital || {};
+    const trac = prof.traction || {};
+    const founders = prof.founders || [];
+    const signals = prof.signals || {};
+    const thresholds = prof.threshold_analysis || [];
     const memo = v.memo || {};
+    const sections = memo.sections || {};
+    const score = v.score || {};
+
     let html = '';
 
-    const sectionOrder = ['summary', 'founders', 'market', 'signals', 'risks', 'bear_case'];
-    const sections = memo.sections || {};
-    const keys = [
-        ...sectionOrder.filter((k) => sections[k]),
-        ...Object.keys(sections).filter((k) => !sectionOrder.includes(k)),
-    ];
+    // 1. Executive KPI Tiles Dashboard
+    const totalRaisedStr = cap.total_raised_usd ? formatUSD(cap.total_raised_usd) : 'Pre-seed / $0';
+    const roundsStr = cap.rounds_count ? `${cap.rounds_count} round(s) • ${cap.stage || 'Seed'}` : (cap.stage || 'Pre-round');
 
-    for (const sec of keys) {
-        const sentences = sections[sec] || [];
-        if (!sentences.length) continue;
-        html += `<div class="memo-section-title">${esc(sec.replace(/_/g, ' '))}</div>`;
-        for (const s of sentences) html += `<div class="memo-sentence">${buildSentenceHtml(s)}</div>`;
+    let fTileVal = 'Unverified';
+    let fTileSub = 'No founder records in registry';
+    if (founders.length) {
+        fTileVal = founders[0].name;
+        if (founders.length > 1) fTileVal += ` +${founders.length - 1}`;
+        fTileSub = founders[0].prior_headcount
+            ? `${founders[0].prior_company || 'Operator'} (${Number(founders[0].prior_headcount).toLocaleString()} org scale)`
+            : (founders[0].prior_company || `${founders[0].years_experience || 0} yrs experience`);
     }
+
+    const hcTileVal = trac.headcount_total ? `${trac.headcount_total} employees` : 'Unconfirmed';
+    const hcTileSub = trac.headcount_yoy !== null && trac.headcount_yoy !== undefined
+        ? `${trac.headcount_yoy > 0 ? '+' : ''}${trac.headcount_yoy.toFixed(1)}% YoY • ${trac.growth_velocity || 'Steady'}`
+        : (trac.growth_velocity || 'Headcount momentum tracking');
+
+    const scoreTileVal = `${(score.total || 0).toFixed(1)} / 100`;
+    const scoreTileSub = `Confidence: ${((score.confidence || 0) * 100).toFixed(0)}% • ${decisionLabel(v.decision)}`;
+
+    html += `
+    <div class="memo-kpi-grid">
+      <div class="memo-kpi-card">
+        <div class="memo-kpi-head">💰 Capital & Valuation</div>
+        <div class="memo-kpi-val">${esc(totalRaisedStr)}</div>
+        <div class="memo-kpi-sub">${esc(roundsStr)}</div>
+      </div>
+      <div class="memo-kpi-card">
+        <div class="memo-kpi-head">👥 Leadership & Scale</div>
+        <div class="memo-kpi-val">${esc(fTileVal)}</div>
+        <div class="memo-kpi-sub">${esc(fTileSub)}</div>
+      </div>
+      <div class="memo-kpi-card">
+        <div class="memo-kpi-head">📈 Headcount & Growth</div>
+        <div class="memo-kpi-val">${esc(hcTileVal)}</div>
+        <div class="memo-kpi-sub">${esc(hcTileSub)}</div>
+      </div>
+      <div class="memo-kpi-card">
+        <div class="memo-kpi-head">🎯 Thesis Fit & Call</div>
+        <div class="memo-kpi-val">${esc(scoreTileVal)}</div>
+        <div class="memo-kpi-sub">${esc(scoreTileSub)}</div>
+      </div>
+    </div>`;
+
+    // 2. Executive Verdict & Thesis Alignment Section
+    html += `
+    <div class="memo-section-wrap">
+      <div class="memo-sec-header">
+        <span class="memo-sec-title">1. Investment Committee Verdict & Rationale</span>
+        <span class="memo-sec-badge">${decisionLabel(v.decision)}</span>
+      </div>
+      <div class="rationale-text" style="margin-bottom: 16px;">
+        ${esc(v.rationale || '')}
+      </div>`;
+
+    if (thresholds.length) {
+        html += `
+      <div class="memo-table-wrap">
+        <table class="memo-table">
+          <thead>
+            <tr>
+              <th>Evaluation Dimension</th>
+              <th>Thesis Criterion</th>
+              <th>Company Actual</th>
+              <th>Alignment Detail</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>`;
+        for (const t of thresholds) {
+            const tagClass = t.status === 'pass' ? 'pass' : t.status === 'fail' ? 'fail' : 'neutral';
+            const tagLabel = t.status === 'pass' ? '✓ PASS' : t.status === 'fail' ? '⚠️ FAIL' : 'NEUTRAL';
+            html += `
+            <tr>
+              <td><b>${esc(t.criterion)}</b></td>
+              <td>${esc(t.required)}</td>
+              <td><b>${esc(t.actual)}</b></td>
+              <td>${esc(t.detail)}</td>
+              <td><span class="memo-table-tag ${tagClass}">${tagLabel}</span></td>
+            </tr>`;
+        }
+        html += `
+          </tbody>
+        </table>
+      </div>`;
+    }
+
+    if (score.reasons && score.reasons.length) {
+        html += `<div style="margin-top: 10px; font-family: var(--font-sans); font-size: 12.5px; color: var(--text-2);">
+          <b>Key Quantitative Drivers:</b>
+          <ul style="margin: 6px 0 0 18px; line-height: 1.6;">
+            ${score.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}
+          </ul>
+        </div>`;
+    }
+    html += `</div>`;
+
+    // 3. Founders & Operator Pedigree Section
+    html += `
+    <div class="memo-section-wrap">
+      <div class="memo-sec-header">
+        <span class="memo-sec-title">2. Founders & Leadership Team</span>
+        <span class="memo-sec-badge">${founders.length} Identified</span>
+      </div>`;
+
+    if (founders.length) {
+        html += `<div class="founder-cards-grid">`;
+        for (const f of founders) {
+            const liLink = f.linkedin_url
+                ? `<a href="${esc(f.linkedin_url)}" target="_blank" rel="noopener noreferrer" class="founder-link">LinkedIn Profile ↗</a>`
+                : '';
+            const rolesHtml = (f.roles && f.roles.length)
+                ? f.roles.map((r) => `<span>• ${esc(r)}</span>`).join('')
+                : '';
+
+            html += `
+            <div class="founder-card">
+              <div class="founder-card-head">
+                <span class="founder-name">${esc(f.name)}</span>
+                ${liLink}
+              </div>
+              <div><span class="founder-pedigree">${esc(f.pedigree || 'Operator')}</span></div>
+              ${rolesHtml ? `<div class="founder-roles-list"><b>Career Trajectory:</b>${rolesHtml}</div>` : ''}
+              ${f.years_experience ? `<div style="font-size: 11.5px; color: var(--muted);">${f.years_experience} years verified operator experience</div>` : ''}
+            </div>`;
+        }
+        html += `</div>`;
+    } else {
+        html += `<p class="memo-empty">No founder records could be verified autonomously in primary registries. Flagged for analyst verification.</p>`;
+    }
+
+    if (sections.founders && sections.founders.length) {
+        html += `<div style="margin-top: 12px;">`;
+        for (const s of sections.founders) html += `<div class="memo-sentence">${buildSentenceHtml(s)}</div>`;
+        html += `</div>`;
+    }
+    html += `</div>`;
+
+    // 4. Capital, Funding Rounds & Valuation
+    html += `
+    <div class="memo-section-wrap">
+      <div class="memo-sec-header">
+        <span class="memo-sec-title">3. Capital Structure & Financing History</span>
+        <span class="memo-sec-badge">${esc(cap.stage || 'Financing')}</span>
+      </div>`;
+
+    if (cap.rounds && cap.rounds.length) {
+        html += `
+      <div class="memo-table-wrap">
+        <table class="memo-table">
+          <thead>
+            <tr>
+              <th>Round</th>
+              <th>Investment Series</th>
+              <th>Amount (USD)</th>
+              <th>Announced Date</th>
+            </tr>
+          </thead>
+          <tbody>`;
+        for (const r of cap.rounds) {
+            html += `
+            <tr>
+              <td>Round ${r.round_number}</td>
+              <td><b>${esc(r.type || 'Institutional')}</b></td>
+              <td><b>${formatUSD(r.amount_usd)}</b></td>
+              <td>${esc(r.date || 'Undisclosed')}</td>
+            </tr>`;
+        }
+        html += `
+          </tbody>
+        </table>
+      </div>`;
+    } else {
+        html += `<div class="memo-sentence">${esc(v.name || v.company_id)} has no recorded institutional venture rounds or is pre-round/bootstrapped.</div>`;
+    }
+
+    if (sections.market && sections.market.length) {
+        html += `<div style="margin-top: 8px;">`;
+        for (const s of sections.market) html += `<div class="memo-sentence">${buildSentenceHtml(s)}</div>`;
+        html += `</div>`;
+    }
+    html += `</div>`;
+
+    // 5. Headcount, Growth & Sales / Momentum Trajectory
+    html += `
+    <div class="memo-section-wrap">
+      <div class="memo-sec-header">
+        <span class="memo-sec-title">4. Headcount & Momentum Trajectory</span>
+        <span class="memo-sec-badge">${esc(trac.growth_velocity || 'Traction')}</span>
+      </div>
+      <div class="memo-kpi-grid" style="margin-bottom: 14px;">
+        <div class="memo-kpi-card">
+          <div class="memo-kpi-head">Total Headcount</div>
+          <div class="memo-kpi-val">${trac.headcount_total || '—'}</div>
+          <div class="memo-kpi-sub">Full-time team members</div>
+        </div>
+        <div class="memo-kpi-card">
+          <div class="memo-kpi-head">YoY Headcount Delta</div>
+          <div class="memo-kpi-val">${trac.headcount_yoy !== null && trac.headcount_yoy !== undefined ? `${trac.headcount_yoy > 0 ? '+' : ''}${trac.headcount_yoy.toFixed(1)}%` : '—'}</div>
+          <div class="memo-kpi-sub">Annualized growth</div>
+        </div>
+        <div class="memo-kpi-card">
+          <div class="memo-kpi-head">QoQ Growth</div>
+          <div class="memo-kpi-val">${trac.headcount_qoq !== null && trac.headcount_qoq !== undefined ? `${trac.headcount_qoq > 0 ? '+' : ''}${trac.headcount_qoq.toFixed(1)}%` : '—'}</div>
+          <div class="memo-kpi-sub">Quarterly momentum</div>
+        </div>
+        <div class="memo-kpi-card">
+          <div class="memo-kpi-head">MoM Growth</div>
+          <div class="memo-kpi-val">${trac.headcount_mom !== null && trac.headcount_mom !== undefined ? `${trac.headcount_mom > 0 ? '+' : ''}${trac.headcount_mom.toFixed(1)}%` : '—'}</div>
+          <div class="memo-kpi-sub">Trailing month change</div>
+        </div>
+      </div>`;
+
+    if (sections.signals && sections.signals.length) {
+        for (const s of sections.signals) html += `<div class="memo-sentence">${buildSentenceHtml(s)}</div>`;
+    }
+    html += `</div>`;
+
+    // 6. Signals, Jobs & Competitor Benchmarking
+    html += `
+    <div class="memo-section-wrap">
+      <div class="memo-sec-header">
+        <span class="memo-sec-title">5. Talent Signals & Competitor Landscape</span>
+        <span class="memo-sec-badge">${prof.competitors ? prof.competitors.length : 0} Competitors</span>
+      </div>`;
+
+    if (signals.jobs && signals.jobs.length) {
+        html += `<div style="margin-bottom: 14px; font-family: var(--font-sans); font-size: 13px;">
+          <b>Active Job Openings:</b>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+            ${signals.jobs.map((j) => `<span class="flag-chip" style="background: var(--surface-3); color: var(--text);">💼 ${esc(j.title)}</span>`).join('')}
+          </div>
+        </div>`;
+    }
+
+    if (prof.competitors && prof.competitors.length) {
+        html += `<div style="font-family: var(--font-sans); font-size: 13px;">
+          <b>Benchmarked Competitors:</b>
+          <div class="competitor-chips">
+            ${prof.competitors.map((c) => `
+              <div class="competitor-chip">
+                <span>🏢 <b>${esc(c.name)}</b></span>
+                ${c.headcount ? `<span class="competitor-hc">(${c.headcount} team)</span>` : ''}
+              </div>`).join('')}
+          </div>
+        </div>`;
+    }
+    html += `</div>`;
+
+    // 7. Skeptic Challenges & Risk Analysis
+    html += `
+    <div class="memo-section-wrap">
+      <div class="memo-sec-header">
+        <span class="memo-sec-title">6. Independent Skeptic Analysis & Risks</span>
+        <span class="memo-sec-badge">Risk Protocol</span>
+      </div>`;
+
+    if (sections.risks && sections.risks.length) {
+        for (const s of sections.risks) html += `<div class="memo-sentence">${buildSentenceHtml(s)}</div>`;
+    }
+    if (sections.bear_case && sections.bear_case.length) {
+        html += `<div class="memo-section-title" style="margin-top: 14px;">Bear Case Scenario</div>`;
+        for (const s of sections.bear_case) html += `<div class="memo-sentence">${buildSentenceHtml(s)}</div>`;
+    }
+    html += `</div>`;
+
+    // 8. Evidence Verification & Citations
+    html += `
+    <div class="memo-section-wrap">
+      <div class="memo-sec-header">
+        <span class="memo-sec-title">7. Verifiable Fact Citations & Audit Ledger</span>
+        <span class="memo-sec-badge">Fact Ledger</span>
+      </div>
+      <p style="font-family: var(--font-sans); font-size: 12.5px; color: var(--muted); margin-bottom: 12px;">
+        Every claim and number above is cross-referenced with an immutable Fact ID in the central ledger. Click any badge to inspect source endpoint, timestamp, and raw payload.
+      </p>`;
 
     if (memo.removed_by_verifier > 0) {
-        html += `<div class="memo-removed">The verifier removed ${memo.removed_by_verifier} claim${memo.removed_by_verifier === 1 ? '' : 's'} it could not trace to a fact.</div>`;
+        html += `<div class="memo-removed">The verifier removed ${memo.removed_by_verifier} claim${memo.removed_by_verifier === 1 ? '' : 's'} it could not trace to an immutable Fact ID.</div>`;
     }
-    if (!html) html = '<p class="memo-empty">No memo content available.</p>';
+
+    const otherKeys = Object.keys(sections).filter((k) => !['summary', 'founders', 'market', 'signals', 'risks', 'bear_case'].includes(k));
+    for (const sec of otherKeys) {
+        html += `<div class="memo-section-title">${esc(sec.replace(/_/g, ' '))}</div>`;
+        for (const s of sections[sec]) html += `<div class="memo-sentence">${buildSentenceHtml(s)}</div>`;
+    }
+    html += `</div>`;
 
     $('memo-content').innerHTML = html;
     $('memo-content').scrollTop = 0;

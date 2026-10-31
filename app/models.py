@@ -112,6 +112,7 @@ class Verdict(BaseModel):
     rationale: str
     flags: list[str] = Field(default_factory=list)
     check_size: Optional[float] = None             # from the allocator, if enabled
+    company_profile: Optional[dict[str, Any]] = None
 
 
 # ---------------------------------------------------------------------------

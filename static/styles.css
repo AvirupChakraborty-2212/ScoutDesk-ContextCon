@@ -1052,6 +1052,115 @@ textarea.mono {
     color: var(--text-2);
 }
 
+/* Card metrics grid & pills */
+.card-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.card-metric-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--r-md);
+    background: var(--surface-3);
+    font-size: 12px;
+    min-width: 0;
+}
+
+.card-metric-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.card-metric-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.card-metric-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-metric-val {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.threshold-tags-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 12px;
+}
+
+.threshold-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    line-height: 1.4;
+    font-weight: 500;
+}
+
+.threshold-pill.fail {
+    background: var(--rose-soft);
+    color: var(--rose-ink);
+    border: 1px solid color-mix(in srgb, var(--rose) 25%, transparent);
+}
+
+.threshold-pill.pass {
+    background: var(--sage-soft);
+    color: var(--sage-ink);
+    border: 1px solid color-mix(in srgb, var(--sage) 25%, transparent);
+}
+
+.threshold-pill.warn {
+    background: var(--sand-soft);
+    color: var(--sand-ink);
+    border: 1px solid color-mix(in srgb, var(--sand) 25%, transparent);
+}
+
+.card-memo-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 14px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+}
+
+.card-memo-btn:hover {
+    background: color-mix(in srgb, var(--accent-soft) 80%, var(--accent) 20%);
+    transform: translateY(-1px);
+}
+
 /* ─── Memo modal ─── */
 #memo-panel {
     position: fixed;
@@ -1100,7 +1209,7 @@ textarea.mono {
 #memo-box {
     display: flex;
     flex-direction: column;
-    width: min(780px, 100%);
+    width: min(880px, 100%);
     max-height: min(88vh, 900px);
     background: var(--surface);
     border: 1px solid var(--border);
@@ -1154,10 +1263,239 @@ textarea.mono {
 }
 
 #memo-content {
-    padding: 8px 28px 30px;
+    padding: 16px 28px 30px;
     overflow-y: auto;
     flex: 1;
     font-family: var(--font-serif);
+}
+
+/* Executive KPI grid */
+.memo-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.memo-kpi-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.memo-kpi-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+}
+
+.memo-kpi-val {
+    font-family: var(--font-serif);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+    margin-top: 2px;
+}
+
+.memo-kpi-sub {
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+/* Sections */
+.memo-section-wrap {
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.memo-section-wrap:last-child {
+    border-bottom: none;
+}
+
+.memo-sec-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.memo-sec-title {
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.memo-sec-badge {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    color: var(--muted);
+}
+
+.memo-table-wrap {
+    overflow-x: auto;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    margin: 12px 0;
+    background: var(--surface-2);
+}
+
+.memo-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    text-align: left;
+}
+
+.memo-table th {
+    padding: 10px 14px;
+    background: var(--surface-3);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid var(--border);
+}
+
+.memo-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+}
+
+.memo-table tr:last-child td {
+    border-bottom: none;
+}
+
+.memo-table-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.memo-table-tag.pass {
+    background: var(--sage-soft);
+    color: var(--sage-ink);
+}
+
+.memo-table-tag.fail {
+    background: var(--rose-soft);
+    color: var(--rose-ink);
+}
+
+.memo-table-tag.neutral {
+    background: var(--surface-3);
+    color: var(--muted);
+}
+
+.founder-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    margin: 12px 0;
+}
+
+.founder-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    font-family: var(--font-sans);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.founder-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.founder-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.founder-link {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.founder-link:hover {
+    text-decoration: underline;
+}
+
+.founder-pedigree {
+    font-size: 12px;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    display: inline-block;
+}
+
+.founder-roles-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-2);
+}
+
+.competitor-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.competitor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-family: var(--font-sans);
+    font-size: 12px;
+}
+
+.competitor-hc {
+    font-size: 11px;
+    color: var(--muted);
 }
 
 .memo-section-title {
