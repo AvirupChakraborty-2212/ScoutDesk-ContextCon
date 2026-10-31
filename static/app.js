@@ -172,6 +172,11 @@ function handleEvent(ev) {
         loadFinalVerdicts(state.runId);
     }
 
+    // Follow new events only if the reader is already at the bottom,
+    // so scrolling up to read earlier steps isn't interrupted.
+    const body = $('trace-body');
+    const stick = body.scrollHeight - body.scrollTop - body.clientHeight < 80;
+
     if (company_id) {
         ensureLane(company_id);
         appendLaneEvent(company_id, ev);
@@ -180,6 +185,8 @@ function handleEvent(ev) {
     } else {
         appendGlobalEvent(ev);
     }
+
+    if (stick) body.scrollTop = body.scrollHeight;
 }
 
 async function loadFinalVerdicts(runId) {
@@ -243,7 +250,6 @@ function appendLaneEvent(companyId, ev) {
     const lane = state.lanes[companyId];
     if (!lane) return;
     lane.eventsEl.appendChild(buildEventRow(ev));
-    lane.eventsEl.scrollTop = lane.eventsEl.scrollHeight;
 }
 
 function setLaneStatus(companyId, status) {
@@ -261,7 +267,6 @@ function appendGlobalEvent(ev) {
     hideTraceEmpty();
     const body = $('trace-body');
     body.appendChild(row);
-    body.scrollTop = body.scrollHeight;
 }
 
 function buildEventRow(ev) {
