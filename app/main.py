@@ -8,7 +8,7 @@ import logging
 import uuid
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -61,19 +61,19 @@ _RUNWAY_RESULTS: dict[str, list[RunwayReport]] = {}
 class RunRequest(BaseModel):
     request: str = "Pre-seed/seed Indian B2B companies with operator founders"
     thesis: str = "preseed_india"
-    as_of: str | None = None
-    companies: list[str] | None = None
+    as_of: Optional[str] = None
+    companies: Optional[list[str]] = None
 
 
 class BacktestRequest(BaseModel):
     thesis: str = "preseed_india"
     as_of: str = "2024-01-01"
-    cohort: list[str] | None = None
+    cohort: Optional[list[str]] = None
     horizon_months: int = 18
 
 
 class RunwayRequest(BaseModel):
-    domains: list[str] | None = None
+    domains: Optional[list[str]] = None
     thesis: str = "preseed_india"
 
 
@@ -88,6 +88,16 @@ async def root():
     if index_file.exists():
         return FileResponse(index_file)
     return {"message": "Scout Desk API running. Visit /static/index.html"}
+
+
+@app.get("/styles.css")
+async def styles_fallback():
+    return FileResponse(STATIC_DIR / "styles.css")
+
+
+@app.get("/app.js")
+async def app_js_fallback():
+    return FileResponse(STATIC_DIR / "app.js")
 
 
 # --- Health Check ---
@@ -130,7 +140,7 @@ async def create_run(req: RunRequest, background_tasks: BackgroundTasks):
     run_id = f"run-{uuid.uuid4().hex[:8]}"
 
     # Parse optional as_of date
-    as_of_dt: date | None = None
+    as_of_dt: Optional[date] = None
     if req.as_of:
         try:
             as_of_dt = datetime.strptime(req.as_of.strip(), "%Y-%m-%d").date()
