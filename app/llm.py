@@ -42,6 +42,8 @@ import logging
 import time
 from typing import Any
 
+import httpx
+
 try:
     import jsonschema
 except ImportError:
@@ -72,7 +74,7 @@ class LLMFailed(Exception):
 # ---------------------------------------------------------------------------
 
 _DEFAULT_MODELS: dict[str, str] = {
-    "gemini": "gemini-1.5-pro-latest",
+    "gemini": "gemini-3.5-flash-lite",
     "openai": "gpt-4o",
     "anthropic": "claude-3-5-sonnet-20241022",
 }
@@ -131,23 +133,30 @@ async def _call_gemini(
     model: str,
 ) -> str:
     """Call the Gemini API and return the raw text response."""
-    import google.generativeai as genai  # type: ignore[import]
+    clean_model = model.replace("-latest", "")
+    if clean_model in ("gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.5-flash"):
+        clean_model = "gemini-3.5-flash-lite"
 
-    genai.configure(api_key=api_key)
-    gen_model = genai.GenerativeModel(
-        model_name=model,
-        generation_config=genai.GenerationConfig(  # type: ignore[attr-defined]
-            response_mime_type="application/json",
-            temperature=0.0,
-        ),
-    )
-    # The google-generativeai SDK is synchronous; run in executor.
-    loop = asyncio.get_running_loop()
-    response = await loop.run_in_executor(
-        None,
-        lambda: gen_model.generate_content(prompt),
-    )
-    return response.text
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:generateContent?key={api_key}"
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        resp = await client.post(
+            url,
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "response_mime_type": "application/json",
+                    "temperature": 0.0,
+                },
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        candidates = data.get("candidates", [])
+        if candidates:
+            parts = candidates[0].get("content", {}).get("parts", [])
+            if parts:
+                return parts[0].get("text", "{}")
+        return "{}"
 
 
 async def _call_openai(

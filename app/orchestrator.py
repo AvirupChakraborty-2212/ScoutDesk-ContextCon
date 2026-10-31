@@ -108,9 +108,10 @@ async def _run_company_pipeline(
                 competitor_domains.append(parts[1])
 
     # 2. Parallel Analysts: Founder, Signals, Market
-    f_task = AgentTask(run_id=run_id, agent="founder", company_id=company_id)
-    s_task = AgentTask(run_id=run_id, agent="signals", company_id=company_id)
-    m_task = AgentTask(run_id=run_id, agent="market", company_id=company_id)
+    allocated_credits = max(5, credits.remaining // 4)
+    f_task = AgentTask(run_id=run_id, agent="founder", company_id=company_id, budget_credits=allocated_credits)
+    s_task = AgentTask(run_id=run_id, agent="signals", company_id=company_id, budget_credits=allocated_credits)
+    m_task = AgentTask(run_id=run_id, agent="market", company_id=company_id, budget_credits=allocated_credits)
 
     results = await asyncio.gather(
         founder_agent.run(f_task, comp_facts, ledger, bus, credits),
@@ -158,7 +159,7 @@ async def _run_company_pipeline(
     )
 
     # 5. Writer -> Skeptic -> Verifier loop
-    w_task = AgentTask(run_id=run_id, agent="writer", company_id=company_id)
+    w_task = AgentTask(run_id=run_id, agent="writer", company_id=company_id, budget_credits=0)
     memo = await writer_agent.run(
         w_task,
         score,
@@ -169,7 +170,7 @@ async def _run_company_pipeline(
     )
 
     # Skeptic challenge
-    sk_task = AgentTask(run_id=run_id, agent="skeptic", company_id=company_id)
+    sk_task = AgentTask(run_id=run_id, agent="skeptic", company_id=company_id, budget_credits=allocated_credits)
     challenges = await skeptic_agent.run(
         sk_task,
         memo,
@@ -207,7 +208,7 @@ async def _run_company_pipeline(
         )
 
     # 6. IC Partner Verdict
-    ic_task = AgentTask(run_id=run_id, agent="ic", company_id=company_id)
+    ic_task = AgentTask(run_id=run_id, agent="ic", company_id=company_id, budget_credits=0)
     verdict = await ic_agent.run(
         ic_task,
         score,
