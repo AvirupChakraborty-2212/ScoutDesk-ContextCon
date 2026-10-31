@@ -331,3 +331,9 @@ async def get_runway(runway_id: str):
         "runway_id": runway_id,
         "reports": [r.model_dump(mode="json") for r in reports],
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+
