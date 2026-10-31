@@ -129,6 +129,18 @@ def _build_client() -> httpx.AsyncClient:
     )
 
 
+def _parse_retry_after(response: httpx.Response, fallback_seconds: float) -> float:
+    """Extract wait time in seconds from Retry-After header, or return fallback."""
+    header = response.headers.get("retry-after") or response.headers.get("Retry-After")
+    if header:
+        try:
+            val = float(header)
+            return max(val, 2.0)
+        except (ValueError, TypeError):
+            pass
+    return fallback_seconds
+
+
 async def _post(
     endpoint: str,
     body: dict[str, Any],
@@ -137,10 +149,11 @@ async def _post(
 ) -> Any:
     """POST to Crustdata with disk-cache, OFFLINE guard, credit deduction, and retry.
 
-    Retry policy: up to 2 retries on 429 / 5xx / network timeouts, with
-    exponential back-off plus random jitter  (base × 2^attempt, base ∈ [0.5, 1.5)).
-    Credits are charged before the first network attempt; they are not refunded on
-    failure (the budget prevents runaway spending, not individual call failures).
+    Retry policy:
+    - On 429 Too Many Requests: waits for a few seconds (respecting Retry-After
+      or scaling from 3.0s with exponential back-off + jitter) and retries up to
+      10 times until resolved.
+    - On 5xx server errors / timeouts: retries up to 3 times.
     """
     # --- Check cache first (always, to avoid wasted credits) ---
     cached = _read_cache(endpoint, body)
@@ -159,34 +172,62 @@ async def _post(
     run_credits.charge(credit_cost)
 
     # --- Network call with retries ---
-    RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
-    max_retries = 2
+    MAX_429_RETRIES = 10
+    MAX_SERVER_RETRIES = 3
+
+    attempt_429 = 0
+    attempt_other = 0
     last_exc: Exception | None = None
 
     async with _build_client() as client:
-        for attempt in range(max_retries + 1):
+        while True:
             try:
                 response = await client.post(endpoint, content=json.dumps(body))
 
-                if response.status_code in RETRYABLE_STATUS:
-                    wait = (2 ** attempt) * (0.5 + random.random())
+                # Handle 429 Rate Limiting specifically
+                if response.status_code == 429:
+                    attempt_429 += 1
+                    base_wait = min(25.0, 3.0 * (1.35 ** (attempt_429 - 1)) + random.uniform(0.5, 2.0))
+                    wait = _parse_retry_after(response, base_wait)
+
                     logger.warning(
-                        "Crustdata POST %s → HTTP %d; retry in %.2fs (attempt %d/%d)",
+                        "Crustdata rate limited (HTTP 429) on POST %s. Waiting %.1fs before retry (attempt %d/%d)...",
+                        endpoint,
+                        wait,
+                        attempt_429,
+                        MAX_429_RETRIES,
+                    )
+                    last_exc = httpx.HTTPStatusError(
+                        f"HTTP 429 Rate Limit on {endpoint}",
+                        request=response.request,
+                        response=response,
+                    )
+                    if attempt_429 <= MAX_429_RETRIES:
+                        await asyncio.sleep(wait)
+                        continue
+                    raise last_exc
+
+                # Handle 5xx server errors
+                if response.status_code in {500, 502, 503, 504}:
+                    attempt_other += 1
+                    wait = (2 ** attempt_other) * (0.5 + random.random())
+                    logger.warning(
+                        "Crustdata server error POST %s → HTTP %d; retry in %.2fs (attempt %d/%d)",
                         endpoint,
                         response.status_code,
                         wait,
-                        attempt + 1,
-                        max_retries,
+                        attempt_other,
+                        MAX_SERVER_RETRIES,
                     )
                     last_exc = httpx.HTTPStatusError(
                         f"HTTP {response.status_code}",
                         request=response.request,
                         response=response,
                     )
-                    if attempt < max_retries:
+                    if attempt_other <= MAX_SERVER_RETRIES:
                         await asyncio.sleep(wait)
                         continue
-                    raise last_exc  # type: ignore[misc]
+                    raise last_exc
 
                 response.raise_for_status()
                 data = response.json()
@@ -194,21 +235,21 @@ async def _post(
                 return data
 
             except httpx.TimeoutException as exc:
-                wait = (2 ** attempt) * (0.5 + random.random())
+                attempt_other += 1
+                wait = (2 ** attempt_other) * (0.5 + random.random())
                 logger.warning(
                     "Crustdata timeout for %s; retry in %.2fs (attempt %d/%d)",
                     endpoint,
                     wait,
-                    attempt + 1,
-                    max_retries,
+                    attempt_other,
+                    MAX_SERVER_RETRIES,
                 )
                 last_exc = exc
-                if attempt < max_retries:
+                if attempt_other <= MAX_SERVER_RETRIES:
                     await asyncio.sleep(wait)
                     continue
                 raise NoData(
-                    f"Crustdata timed out after {max_retries + 1} attempt(s) "
-                    f"for endpoint={endpoint}"
+                    f"Crustdata timed out after {MAX_SERVER_RETRIES} attempts for endpoint={endpoint}"
                 ) from exc
 
     # Should be unreachable, but satisfies the type-checker
