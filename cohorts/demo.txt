@@ -1,3 +1,7 @@
 # Demo companies: strong fit, clear pass, ambiguous, sparse, portfolio/runway
-# One domain per line. Fill these in before 10:30.
-
+# One domain per line.
+composio.dev
+sarvam.ai
+devzero.io
+superops.ai
+zomato.com

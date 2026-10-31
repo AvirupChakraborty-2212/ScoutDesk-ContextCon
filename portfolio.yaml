@@ -1,7 +1,18 @@
 # Portfolio companies to monitor for runway risk.
 # Used by the Runway Watch agent.
 companies:
-  # - domain: example.com
-  #   name: Example Inc
-  #   country: India
-
+  - domain: sarvam.ai
+    name: Sarvam AI
+    country: India
+  - domain: krutrim.com
+    name: Krutrim
+    country: India
+  - domain: composio.dev
+    name: Composio
+    country: India
+  - domain: superops.ai
+    name: SuperOps
+    country: India
+  - domain: devzero.io
+    name: DevZero
+    country: US

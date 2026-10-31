@@ -1,17 +1,895 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scout Desk</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #e1e4e8; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scout Desk — Autonomous VC Investment Committee</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090b10;
+      --card-bg: #121620;
+      --card-border: #1e2638;
+      --text-main: #f0f4fc;
+      --text-muted: #8b9bb4;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.15);
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.15);
+      --yellow: #f59e0b;
+      --yellow-glow: rgba(245, 158, 11, 0.15);
+      --red: #ef4444;
+      --red-glow: rgba(239, 68, 68, 0.15);
+      --purple: #8b5cf6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      background: rgba(18, 22, 32, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: white;
+      font-size: 14px;
+    }
+    .brand h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+    }
+    .badge-theme { background: rgba(59, 130, 246, 0.12); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .meter-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      padding: 6px 14px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+    .meter-bar {
+      width: 80px;
+      height: 6px;
+      background: #1e2638;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .meter-fill {
+      height: 100%;
+      width: 20%;
+      background: var(--accent);
+      transition: width 0.3s ease;
+    }
+
+    /* Main Grid Layout */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr 480px;
+      flex: 1;
+      height: calc(100vh - 65px);
+      overflow: hidden;
+    }
+
+    /* Left Sidebar */
+    .sidebar {
+      background: #0d1017;
+      border-right: 1px solid var(--card-border);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    select, input, textarea {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    select:focus, input:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+    textarea { resize: vertical; min-height: 80px; }
+
+    .firewall-toggle-box {
+      background: rgba(139, 92, 246, 0.08);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      padding: 12px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .firewall-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #c4b5fd;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn {
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+    }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.08); }
+
+    /* Middle Live Lanes */
+    .middle-lanes {
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--card-border);
+      overflow: hidden;
+    }
+    .lanes-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0d1017;
+    }
+    .lanes-title { font-size: 14px; font-weight: 700; }
+    .firewall-counter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .lanes-feed {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+    .event-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .event-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .event-agent {
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+    .agent-company { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .agent-founder { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .agent-signals { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .agent-scorer { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; }
+    .agent-skeptic { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .agent-verifier { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
+    .agent-ic { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
+    .agent-runway { background: rgba(249, 115, 22, 0.15); color: #fb923c; }
+
+    /* Right Panel Tabs */
+    .right-panel {
+      background: #0d1017;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid var(--card-border);
+      background: var(--card-bg);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 14px 10px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: none;
+    }
+    .tab-content.active { display: block; }
+
+    /* Verdict Card */
+    .verdict-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .verdict-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .company-name { font-size: 16px; font-weight: 700; }
+    .decision-badge {
+      font-weight: 700;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+    .decision-back { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .decision-watch { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .decision-pass { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .decision-human_review { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
+
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .score-total { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .score-parts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .part-chip {
+      background: rgba(255, 255, 255, 0.04);
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    .check-size-box {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .rationale-text {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 10px 12px;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+    }
+
+    /* Citation chips */
+    .citation-chip {
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .citation-chip:hover {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* Popover Modal */
+    #factModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      width: 520px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 12px;
+    }
+    .modal-title { font-size: 15px; font-weight: 700; }
+    .close-btn { cursor: pointer; background: none; border: none; color: var(--text-muted); font-size: 18px; }
+    .raw-snippet {
+      background: #090b10;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      color: #94a3b8;
+    }
+
+    /* Table styles for Runway & Backtest */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .data-table th, .data-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--card-border);
+      text-align: left;
+    }
+    .data-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+
+    .scorecard-banner {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      text-align: center;
+    }
+    .scorecard-item h3 { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .scorecard-item p { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+  </style>
 </head>
 <body>
-    <h1>Scout Desk</h1>
-    <p>UI coming soon.</p>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">S</div>
+      <h1>Scout Desk</h1>
+      <span class="badge badge-theme">ContextCon 03 · Theme: Investing</span>
+    </div>
+    <div class="header-right">
+      <div class="meter-box">
+        <span>Credits</span>
+        <div class="meter-bar"><div class="meter-fill" id="creditFill"></div></div>
+        <span id="creditText">0 / 150</span>
+      </div>
+      <div class="meter-box">
+        <span style="color: #10b981;">●</span>
+        <span id="statusText">System Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <!-- Left Sidebar: Controls -->
+    <div class="sidebar">
+      <div class="form-group">
+        <label class="form-label">Investment Thesis</label>
+        <select id="thesisSelect">
+          <option value="preseed_india">Pre-seed/seed India B2B (Operator Founders)</option>
+          <option value="us_ai_seed">US AI/ML Seed (Technical Infrastructure)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Target Companies (Optional)</label>
+        <textarea id="targetCompanies" placeholder="Leave empty for autonomous Crustdata graph sourcing, or enter domains like:&#10;composio.dev&#10;sarvam.ai"></textarea>
+      </div>
+
+      <div class="firewall-toggle-box">
+        <div class="firewall-title">
+          <span>🛡️ Time Firewall (Backtest Mode)</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">
+          Test calls as of a past date. All subsequent facts are cryptographically hidden from agents.
+        </p>
+        <input type="date" id="asOfDate" value="2024-01-01">
+      </div>
+
+      <button class="btn btn-primary" id="btnRun">
+        <span>▶</span> Start Pipeline Run
+      </button>
+
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" style="flex: 1;" id="btnBacktest">
+          Backtest Cohort
+        </button>
+        <button class="btn btn-secondary" style="flex: 1;" id="btnRunway">
+          Runway Watch
+        </button>
+      </div>
+
+      <div style="margin-top: auto; font-size: 11px; color: var(--text-muted); line-height: 1.5; border-top: 1px solid var(--card-border); pt: 14px;">
+        <strong>Design Rules:</strong><br>
+        • Every number traces to a Crustdata Fact<br>
+        • Scorer is pure code, no LLM math<br>
+        • Verifier blocks lookahead leakage
+      </div>
+    </div>
+
+    <!-- Middle: Live Agent Lanes -->
+    <div class="middle-lanes">
+      <div class="lanes-header">
+        <div class="lanes-title">Live Agent Lanes & Fact Trace</div>
+        <div class="firewall-counter" id="firewallBadge">Time Firewall: Live Mode</div>
+      </div>
+      <div class="lanes-feed" id="lanesFeed">
+        <div style="color: var(--text-muted); text-align: center; margin-top: 40px;">
+          Ready. Launch a run or backtest to view live multi-agent execution.
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Verdicts & Memos Tabs -->
+    <div class="right-panel">
+      <div class="tabs-header">
+        <button class="tab-btn active" data-tab="tabCalls">Calls</button>
+        <button class="tab-btn" data-tab="tabRunway">Runway Watch</button>
+        <button class="tab-btn" data-tab="tabBacktest">Backtest Scorecard</button>
+      </div>
+
+      <!-- Tab 1: Calls -->
+      <div class="tab-content active" id="tabCalls">
+        <div id="verdictsList" style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="color: var(--text-muted); text-align: center; margin-top: 40px; font-size: 13px;">
+            Verdicts will appear here as IC convenes.
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Runway Watch -->
+      <div class="tab-content" id="tabRunway">
+        <div style="margin-bottom: 14px; font-size: 13px; color: var(--text-muted);">
+          Portfolio Cash-Out Risk Monitor (Hiring freeze & headcount contraction signals)
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Status</th>
+              <th>Est. Runway</th>
+              <th>Primary Signals</th>
+            </tr>
+          </thead>
+          <tbody id="runwayTableBody">
+            <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No runway report loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab 3: Backtest -->
+      <div class="tab-content" id="tabBacktest">
+        <div class="scorecard-banner" id="scorecardBanner" style="display: none;">
+          <div class="scorecard-item">
+            <h3 id="scBackHit" style="color: #34d399;">--</h3>
+            <p>Back Hit Rate</p>
+          </div>
+          <div class="scorecard-item">
+            <h3 id="scBaseRate" style="color: #60a5fa;">--</h3>
+            <p>Cohort Base Rate</p>
+          </div>
+          <div class="scorecard-item">
+            <h3 id="scBaseline" style="color: #fbbf24;">--</h3>
+            <p>Naive Baseline</p>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Call</th>
+              <th>Score</th>
+              <th>Raised in Horizon</th>
+            </tr>
+          </thead>
+          <tbody id="backtestTableBody">
+            <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Run backtest to view outcomes.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fact Popover Modal -->
+  <div id="factModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div class="modal-title" id="factModalTitle">Fact Detail</div>
+        <button class="close-btn" onclick="closeFactModal()">✕</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+        <div><strong>Key:</strong> <span id="factModalKey" style="font-family: 'JetBrains Mono'; color: #60a5fa;"></span></div>
+        <div><strong>Value:</strong> <span id="factModalValue" style="font-weight: 700;"></span></div>
+        <div><strong>Endpoint:</strong> <span id="factModalEndpoint" style="color: var(--text-muted);"></span></div>
+        <div><strong>Field Path:</strong> <span id="factModalPath" style="font-family: 'JetBrains Mono'; font-size: 11px;"></span></div>
+        <div><strong>Known Since:</strong> <span id="factModalDate"></span></div>
+      </div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">RAW CRUSTDATA EXCERPT:</div>
+        <div class="raw-snippet" id="factModalExcerpt"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tab Switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    let activeEventSource = null;
+
+    function appendEvent(ev) {
+      const feed = document.getElementById('lanesFeed');
+      if (feed.children.length === 1 && feed.children[0].textContent.includes('Ready')) {
+        feed.innerHTML = '';
+      }
+
+      const card = document.createElement('div');
+      card.className = 'event-card';
+
+      const agentClass = `agent-${ev.agent || 'company'}`;
+      card.innerHTML = `
+        <div class="event-meta">
+          <span class="event-agent ${agentClass}">${ev.agent || 'SYSTEM'}</span>
+          <span>${ev.company_id || ''}</span>
+          <span style="margin-left: auto;">${ev.kind}</span>
+        </div>
+        <div style="color: var(--text-main);">${ev.message}</div>
+      `;
+
+      feed.appendChild(card);
+      feed.scrollTop = feed.scrollHeight;
+
+      if (ev.kind === 'firewall') {
+        const badge = document.getElementById('firewallBadge');
+        badge.textContent = `Firewall: ${ev.data.blocked_count} Facts Hidden (${ev.data.as_of})`;
+      }
+
+      if (ev.kind === 'credits') {
+        updateCredits(ev.data.used, ev.data.budget);
+      }
+    }
+
+    function updateCredits(used, budget) {
+      const fill = document.getElementById('creditFill');
+      const text = document.getElementById('creditText');
+      text.textContent = `${used} / ${budget || 150}`;
+      const pct = Math.min(100, Math.round((used / (budget || 150)) * 100));
+      fill.style.width = `${pct}%`;
+      if (pct > 80) fill.style.background = 'var(--red)';
+      else if (pct > 50) fill.style.background = 'var(--yellow)';
+      else fill.style.background = 'var(--accent)';
+    }
+
+    // Connect SSE
+    function connectSSE(runId) {
+      if (activeEventSource) activeEventSource.close();
+      const sse = new EventSource(`/api/runs/${runId}/events`);
+      activeEventSource = sse;
+
+      sse.onmessage = (e) => {
+        try {
+          const ev = JSON.parse(e.data);
+          appendEvent(ev);
+          if (ev.kind === 'verdict') {
+            loadVerdicts(runId);
+          }
+          if (ev.kind === 'done') {
+            document.getElementById('statusText').textContent = 'Completed';
+            sse.close();
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      sse.onerror = () => {
+        sse.close();
+      };
+    }
+
+    // Run Pipeline
+    document.getElementById('btnRun').addEventListener('click', async () => {
+      const thesis = document.getElementById('thesisSelect').value;
+      const companiesRaw = document.getElementById('targetCompanies').value.trim();
+      const companies = companiesRaw ? companiesRaw.split('\n').map(s => s.trim()).filter(Boolean) : null;
+      const asOf = document.getElementById('asOfDate').value;
+
+      document.getElementById('lanesFeed').innerHTML = '';
+      document.getElementById('statusText').textContent = 'Pipeline Running...';
+
+      const res = await fetch('/api/runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thesis, companies, as_of: asOf || null })
+      });
+      const data = await res.json();
+      connectSSE(data.run_id);
+    });
+
+    // Run Backtest
+    document.getElementById('btnBacktest').addEventListener('click', async () => {
+      const thesis = document.getElementById('thesisSelect').value;
+      const asOf = document.getElementById('asOfDate').value || '2024-01-01';
+
+      document.getElementById('lanesFeed').innerHTML = '';
+      document.getElementById('statusText').textContent = 'Backtesting Cohort...';
+
+      // Switch to Backtest tab
+      document.querySelector('[data-tab="tabBacktest"]').click();
+
+      const res = await fetch('/api/backtest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thesis, as_of: asOf, horizon_months: 18 })
+      });
+      const data = await res.json();
+      connectSSE(data.backtest_id);
+
+      // Poll for backtest completion
+      const poller = setInterval(async () => {
+        const repRes = await fetch(`/api/backtest/${data.backtest_id}`);
+        const report = await repRes.json();
+        if (report.n !== undefined) {
+          clearInterval(poller);
+          renderBacktestReport(report);
+        }
+      }, 3000);
+    });
+
+    function renderBacktestReport(report) {
+      document.getElementById('scorecardBanner').style.display = 'grid';
+      document.getElementById('scBackHit').textContent = `${Math.round(report.back_hit_rate * 100)}%`;
+      document.getElementById('scBaseRate').textContent = `${Math.round(report.base_rate * 100)}%`;
+      document.getElementById('scBaseline').textContent = `${Math.round(report.baseline_hit_rate * 100)}%`;
+
+      const tbody = document.getElementById('backtestTableBody');
+      tbody.innerHTML = '';
+      (report.cases || []).forEach(c => {
+        const tr = document.createElement('tr');
+        const raisedBadge = c.outcome_raised_within_horizon
+          ? `<span style="color: #34d399; font-weight:700;">✓ Raised Institutional Round</span>`
+          : `<span style="color: var(--text-muted);">✗ No Round</span>`;
+
+        tr.innerHTML = `
+          <td><strong>${c.company_id}</strong></td>
+          <td><span class="decision-badge decision-${c.decision}">${c.decision}</span></td>
+          <td><span style="font-family: 'JetBrains Mono';">${c.score.toFixed(1)}</span></td>
+          <td>${raisedBadge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Run Runway Watch
+    document.getElementById('btnRunway').addEventListener('click', async () => {
+      document.querySelector('[data-tab="tabRunway"]').click();
+      document.getElementById('statusText').textContent = 'Analyzing Runway...';
+
+      const res = await fetch('/api/runway', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thesis: document.getElementById('thesisSelect').value })
+      });
+      const data = await res.json();
+      renderRunwayReports(data.reports);
+      document.getElementById('statusText').textContent = 'System Ready';
+    });
+
+    function renderRunwayReports(reports) {
+      const tbody = document.getElementById('runwayTableBody');
+      tbody.innerHTML = '';
+      (reports || []).forEach(r => {
+        const tr = document.createElement('tr');
+        const levelBadge = `<span class="decision-badge decision-${r.level === 'alert' ? 'pass' : (r.level === 'watch' ? 'watch' : 'back')}">${r.level}</span>`;
+        const estText = r.est_months_left !== null ? `~${r.est_months_left} mos` : 'Unknown';
+
+        tr.innerHTML = `
+          <td><strong>${r.company_id}</strong></td>
+          <td>${levelBadge}</td>
+          <td style="font-family: 'JetBrains Mono'; font-weight: 700;">${estText}</td>
+          <td style="color: #cbd5e1;">${r.signals.join('; ') || 'Normal hiring activity'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Load Verdicts for run
+    async function loadVerdicts(runId) {
+      const res = await fetch(`/api/runs/${runId}`);
+      const data = await res.json();
+      const list = document.getElementById('verdictsList');
+      if (!data.verdicts || data.verdicts.length === 0) return;
+
+      list.innerHTML = '';
+      data.verdicts.forEach(v => {
+        const card = document.createElement('div');
+        card.className = 'verdict-card';
+
+        const checkHtml = v.check_size
+          ? `<div class="check-size-box"><span>Recommended Check Size:</span><span>$${Number(v.check_size).toLocaleString()}</span></div>`
+          : '';
+
+        card.innerHTML = `
+          <div class="verdict-head">
+            <span class="company-name">${v.name || v.company_id}</span>
+            <span class="decision-badge decision-${v.decision}">${v.decision}</span>
+          </div>
+          <div class="score-row">
+            <div class="score-total">${v.score.total.toFixed(1)}<span style="font-size: 13px; color: var(--text-muted);">/100</span></div>
+            <div class="score-parts">
+              <span class="part-chip">Founders: ${v.score.parts.founders?.toFixed(0) || 0}</span>
+              <span class="part-chip">Thesis Fit: ${v.score.parts.thesis_fit?.toFixed(0) || 0}</span>
+              <span class="part-chip">Signals: ${v.score.parts.signals?.toFixed(0) || 0}</span>
+              <span class="part-chip">Confidence: ${(v.score.confidence * 100).toFixed(0)}%</span>
+            </div>
+          </div>
+          ${checkHtml}
+          <div class="rationale-text">${v.rationale}</div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    // Fact Popover Modal
+    async function openFactModal(factId) {
+      try {
+        const res = await fetch(`/api/facts/${factId}`);
+        if (!res.ok) return;
+        const fact = await res.json();
+        document.getElementById('factModalKey').textContent = fact.key;
+        document.getElementById('factModalValue').textContent = `${fact.value} ${fact.unit || ''}`;
+        document.getElementById('factModalEndpoint').textContent = fact.endpoint;
+        document.getElementById('factModalPath').textContent = fact.field_path;
+        document.getElementById('factModalDate').textContent = fact.known_since || 'Undated (Realtime)';
+        document.getElementById('factModalExcerpt').textContent = fact.raw_excerpt;
+        document.getElementById('factModal').style.display = 'flex';
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function closeFactModal() {
+      document.getElementById('factModal').style.display = 'none';
+    }
+  </script>
 </body>
 </html>
-
