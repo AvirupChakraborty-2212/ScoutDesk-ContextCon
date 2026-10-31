@@ -43,6 +43,7 @@ function bindUI() {
     $('runway-run-btn').addEventListener('click', startRunway);
     $('bt-run-btn').addEventListener('click', startBacktest);
     $('theme-toggle').addEventListener('click', toggleTheme);
+    setupTraceScroll();
 
     document.querySelectorAll('.seg-btn').forEach((btn) =>
         btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
@@ -109,6 +110,7 @@ async function startRun() {
 
     clearTrace(false);
     state.running = true;
+    userScrolledUp = false;
     setRunBtn(true);
     hideTraceEmpty();
 
@@ -215,7 +217,28 @@ function resetTraceBody() {
     body.appendChild($('tpl-trace-empty').content.cloneNode(true));
 }
 
+
+let userScrolledUp = false;
+
+function setupTraceScroll() {
+    const body = $('trace-body');
+    if (!body) return;
+    body.addEventListener('scroll', () => {
+        const distFromBottom = body.scrollHeight - body.scrollTop - body.clientHeight;
+        userScrolledUp = distFromBottom > 80;
+    }, { passive: true });
+}
+
+function scrollTraceToBottom(force = false) {
+    if (userScrolledUp && !force) return;
+    const body = $('trace-body');
+    if (body) {
+        body.scrollTop = body.scrollHeight;
+    }
+}
+
 function ensureLane(companyId) {
+
     if (state.lanes[companyId]) return;
     hideTraceEmpty();
 
@@ -244,12 +267,14 @@ function ensureLane(companyId) {
     lane.appendChild(events);
     $('trace-body').appendChild(lane);
     state.lanes[companyId] = { el: lane, eventsEl: events };
+    scrollTraceToBottom();
 }
 
 function appendLaneEvent(companyId, ev) {
     const lane = state.lanes[companyId];
     if (!lane) return;
     lane.eventsEl.appendChild(buildEventRow(ev));
+    scrollTraceToBottom();
 }
 
 function setLaneStatus(companyId, status) {
@@ -267,6 +292,7 @@ function appendGlobalEvent(ev) {
     hideTraceEmpty();
     const body = $('trace-body');
     body.appendChild(row);
+    scrollTraceToBottom();
 }
 
 function buildEventRow(ev) {
@@ -707,6 +733,7 @@ function switchTab(name) {
 }
 
 function clearTrace(resetVerdicts = true) {
+    userScrolledUp = false;
     resetTraceBody();
     state.lanes = {};
     state.firewallCount = 0;

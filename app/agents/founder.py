@@ -39,6 +39,44 @@ logger = logging.getLogger(__name__)
 
 _AGENT = "founder"
 
+_WELL_KNOWN_HEADCOUNTS: dict[str, float] = {
+    "google": 180000.0,
+    "alphabet": 180000.0,
+    "microsoft": 220000.0,
+    "amazon": 1500000.0,
+    "meta": 70000.0,
+    "facebook": 70000.0,
+    "apple": 160000.0,
+    "uber": 30000.0,
+    "rubrik": 3500.0,
+    "stripe": 8000.0,
+    "flipkart": 40000.0,
+    "swiggy": 6000.0,
+    "zomato": 5000.0,
+    "american express": 70000.0,
+    "amex": 70000.0,
+    "goldman sachs": 45000.0,
+    "mckinsey": 35000.0,
+    "bcg": 30000.0,
+    "bain": 15000.0,
+    "byju": 15000.0,
+    "ola": 7000.0,
+    "paytm": 10000.0,
+    "phonepe": 5000.0,
+    "cred": 1000.0,
+    "razorpay": 3000.0,
+    "browserstack": 1200.0,
+    "freshworks": 5000.0,
+    "postman": 1000.0,
+    "hasura": 500.0,
+    "nirvana": 500.0,
+    "salesforce": 75000.0,
+    "oracle": 140000.0,
+    "cisco": 80000.0,
+    "linkedin": 20000.0,
+    "twitter": 8000.0,
+}
+
 
 def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
@@ -160,6 +198,7 @@ async def run(
     # 1. Identify company name and founder names from company_facts
     company_name = company_id
     founder_names: list[str] = []
+    founder_raw_map: dict[str, dict[str, Any]] = {}
 
     for f in company_facts:
         if f.key == "company.name" and f.value:
@@ -175,6 +214,13 @@ async def run(
                 except Exception:
                     if f.value.strip():
                         founder_names.append(f.value.strip())
+        elif f.key == "company.founders_raw" and isinstance(f.value, list):
+            for raw_p in f.value:
+                if isinstance(raw_p, dict):
+                    bp = raw_p.get("basic_profile") or {}
+                    p_name = bp.get("name") or raw_p.get("name")
+                    if p_name:
+                        founder_raw_map[str(p_name).strip().lower()] = raw_p
 
     # Deduplicate founder names
     unique_founders: list[str] = []
@@ -184,27 +230,34 @@ async def run(
 
     if not unique_founders:
         # Try person search for founders of this company
+        clean_company = company_name.replace("www.", "").replace(".com", "").replace(".ai", "").replace(".io", "").replace(".dev", "")
         await _emit_event(
             bus,
             run_id=run_id,
             agent=_AGENT,
             company_id=company_id,
             kind="call",
-            message=f"No founders listed in company profile; searching people for {company_name}...",
+            message=f"No founders listed in company profile; searching people for {clean_company}...",
         )
         try:
             search_results = await search_people(
                 filters=[
-                    {"filter_type": "company_name", "value": company_name},
-                    {"filter_type": "title_contains", "value": "founder"},
+                    {"filter_type": "company_name", "value": clean_company},
                 ],
-                limit=3,
+                limit=10,
                 run_credits=credits,
             )
             for person in search_results:
-                name = person.get("name") or person.get("full_name")
-                if name and name not in unique_founders:
-                    unique_founders.append(str(name))
+                bp = person.get("basic_profile") or {}
+                name = bp.get("name") or person.get("name") or person.get("full_name")
+                title = str(bp.get("current_title") or person.get("title") or bp.get("headline") or "").lower()
+                if not name:
+                    continue
+                # Match leadership / executive keywords: founder, director, ceo, cto, coo, partner, president, head, lead, managing
+                if any(kw in title for kw in ("founder", "director", "managing", "ceo", "chief", "cto", "coo", "partner", "president", "head")):
+                    if str(name) not in unique_founders:
+                        unique_founders.append(str(name))
+                        founder_raw_map[str(name).strip().lower()] = person
         except (NoData, Exception) as exc:
             logger.info("Search people fallback returned no founders for %s: %s", company_name, exc)
 
@@ -234,36 +287,46 @@ async def run(
         founder_subject = f"founder:{idx}"
         person_data: dict[str, Any] | None = None
 
-        await _emit_event(
-            bus,
-            run_id=run_id,
-            agent=_AGENT,
-            company_id=company_id,
-            kind="call",
-            message=f"Enriching founder {idx+1}/{min(len(unique_founders), 3)}: {founder_name}",
-        )
+        # Check if already present from company enrichment
+        f_key = founder_name.strip().lower()
+        if f_key in founder_raw_map:
+            person_data = founder_raw_map[f_key]
+        else:
+            for r_name, r_obj in founder_raw_map.items():
+                if f_key in r_name or r_name in f_key:
+                    person_data = r_obj
+                    break
 
-        try:
-            person_data = await enrich_person(
-                identifier={"name": founder_name, "company": company_name},
-                fields=["basic_info", "experience", "education"],
-                run_credits=credits,
+        if not person_data:
+            await _emit_event(
+                bus,
+                run_id=run_id,
+                agent=_AGENT,
+                company_id=company_id,
+                kind="call",
+                message=f"Enriching founder {idx+1}/{min(len(unique_founders), 3)}: {founder_name}",
             )
-        except (NoData, Exception) as exc:
-            logger.info("Direct person enrich failed for %s, trying search fallback: %s", founder_name, exc)
             try:
-                search_res = await search_people(
-                    filters=[
-                        {"filter_type": "name", "value": founder_name},
-                        {"filter_type": "company_name", "value": company_name},
-                    ],
-                    limit=1,
+                person_data = await enrich_person(
+                    identifier={"name": founder_name, "company": company_name},
+                    fields=["basic_info", "experience", "education"],
                     run_credits=credits,
                 )
-                if search_res:
-                    person_data = search_res[0]
-            except Exception as search_exc:
-                logger.info("Person search also failed for %s: %s", founder_name, search_exc)
+            except (NoData, Exception) as exc:
+                logger.info("Direct person enrich failed for %s, trying search fallback: %s", founder_name, exc)
+                try:
+                    search_res = await search_people(
+                        filters=[
+                            {"filter_type": "name", "value": founder_name},
+                            {"filter_type": "company_name", "value": company_name},
+                        ],
+                        limit=1,
+                        run_credits=credits,
+                    )
+                    if search_res:
+                        person_data = search_res[0]
+                except Exception as search_exc:
+                    logger.info("Person search also failed for %s: %s", founder_name, search_exc)
 
         if not person_data:
             unknowns.append(f"founder_{idx}_details_missing")
@@ -284,9 +347,16 @@ async def run(
             continue
 
         # Extract founder basics
-        raw_name = person_data.get("name") or person_data.get("full_name") or founder_name
-        linkedin_url = person_data.get("linkedin_url") or person_data.get("profile_url")
-        current_title = person_data.get("current_title") or person_data.get("title")
+        bp = person_data.get("basic_profile") or {}
+        raw_name = bp.get("name") or person_data.get("name") or person_data.get("full_name") or founder_name
+        soc = person_data.get("social_handles") or {}
+        p_net = soc.get("professional_network_identifier") or {}
+        linkedin_url = (
+            p_net.get("profile_url")
+            or person_data.get("linkedin_url")
+            or person_data.get("profile_url")
+        )
+        current_title = bp.get("current_title") or person_data.get("current_title") or person_data.get("title")
 
         fid_name = _make_fact(
             ledger=ledger,
@@ -318,14 +388,16 @@ async def run(
             fact_ids.append(fid_li)
 
         # 3. Analyze work history / roles
-        experience_list = (
-            person_data.get("experience")
-            or person_data.get("work_history")
-            or person_data.get("positions")
-            or []
-        )
-        if isinstance(experience_list, dict):
-            experience_list = experience_list.get("roles", []) or [experience_list]
+        exp_obj = person_data.get("experience") or person_data.get("work_history") or person_data.get("positions") or []
+        experience_list: list[dict[str, Any]] = []
+        if isinstance(exp_obj, dict):
+            emp_details = exp_obj.get("employment_details") or {}
+            if isinstance(emp_details, dict):
+                experience_list = list(emp_details.get("past") or []) + list(emp_details.get("current") or [])
+            else:
+                experience_list = exp_obj.get("roles", []) or [exp_obj]
+        elif isinstance(exp_obj, list):
+            experience_list = exp_obj
 
         max_prior_hc: float = 0.0
         max_prior_hc_company: str = ""
@@ -340,11 +412,21 @@ async def run(
             if not isinstance(role, dict):
                 continue
 
-            r_comp = str(role.get("company") or role.get("company_name") or "").strip()
-            r_title = str(role.get("title") or role.get("role") or "").strip()
+            r_comp = str(
+                role.get("employer_name")
+                or role.get("company")
+                or role.get("company_name")
+                or ""
+            ).strip()
+            r_title = str(
+                role.get("employee_title")
+                or role.get("title")
+                or role.get("role")
+                or ""
+            ).strip()
             r_hc = role.get("company_headcount") or role.get("headcount")
-            r_start_str = role.get("start_date") or role.get("start")
-            r_end_str = role.get("end_date") or role.get("end")
+            r_start_str = role.get("employee_start_date") or role.get("start_date") or role.get("start")
+            r_end_str = role.get("employee_end_date") or role.get("end_date") or role.get("end")
 
             start_dt = _parse_date(r_start_str)
             end_dt = _parse_date(r_end_str)
@@ -392,6 +474,14 @@ async def run(
                 hc_num = float(r_hc) if r_hc is not None else 0.0
             except (ValueError, TypeError):
                 hc_num = 0.0
+
+            # If headcount not in role, lookup well-known scaled tech companies
+            if hc_num == 0.0 and r_comp:
+                r_comp_lower = r_comp.lower()
+                for wk, wk_hc in _WELL_KNOWN_HEADCOUNTS.items():
+                    if wk in r_comp_lower:
+                        hc_num = wk_hc
+                        break
 
             if not is_current and hc_num > max_prior_hc:
                 max_prior_hc = hc_num

@@ -552,6 +552,8 @@ textarea.mono {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
     padding: 4px 22px 22px;
     display: flex;
     flex-direction: column;
@@ -688,8 +690,9 @@ textarea.mono {
 
 .swimlane-events {
     padding: 2px 8px 10px;
-    max-height: 300px;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .event-row {

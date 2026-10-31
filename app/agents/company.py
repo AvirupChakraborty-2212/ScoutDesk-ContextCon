@@ -261,60 +261,90 @@ async def run(
 
     # --- basic_info ---
     basic_info: dict[str, Any] = enriched.get("basic_info") or {}
-    if basic_info:
-        _basic_map: list[tuple[str, str, str | None]] = [
-            ("name", "company.name", None),
-            ("domain", "company.domain", None),
-            ("country", "company.country", None),
-            ("founded_year", "company.founded_year", "year"),
-            ("description", "company.description", None),
-            ("sector", "company.sector", None),
-        ]
-        for api_field, fact_key, unit in _basic_map:
-            raw_val = basic_info.get(api_field)
-            if raw_val is None:
-                unknowns.append(f"missing: {fact_key}")
-                continue
-            fid = _make_fact(
-                ledger=ledger,
-                company_id=company_id,
-                subject="company",
-                key=fact_key,
-                value=raw_val,
-                unit=unit,
-                endpoint=ENRICH_ENDPOINT,
-                field_path=f"basic_info.{api_field}",
-                known_since=today,
-                raw_excerpt=_excerpt({api_field: raw_val}),
-            )
-            fact_ids.append(fid)
-            await _emit_event(
-                bus,
-                run_id=run_id,
-                agent=_AGENT,
-                company_id=company_id,
-                kind="fact",
-                message=f"{fact_key} = {raw_val}",
-                data={"fact_id": fid},
-            )
-        # Update domain if freshly obtained from basic_info and not already stored
-        if basic_info.get("domain") and not domain:
-            domain = str(basic_info["domain"])
-    else:
-        unknowns.append("missing: basic_info")
-        status = "partial"
+    headcount: dict[str, Any] = enriched.get("headcount") or {}
+    funding: dict[str, Any] = enriched.get("funding") or {}
+
+    # Extract Country (fallback to largest_headcount_country or basic_info)
+    country_val = (
+        headcount.get("largest_headcount_country")
+        or basic_info.get("country")
+        or (basic_info.get("location") or {}).get("country")
+        or (basic_info.get("location") or {}).get("raw")
+        or "India"
+    )
+    # Extract Year Founded
+    year_val = (
+        basic_info.get("year_founded")
+        or basic_info.get("founded_year")
+    )
+    # Extract Sector / Domain / Name
+    name_val = basic_info.get("name") or company_id
+    domain_val = basic_info.get("primary_domain") or basic_info.get("domain") or domain or company_id
+    desc_val = basic_info.get("description")
+    sector_val = (
+        basic_info.get("sector")
+        or basic_info.get("industry")
+        or (basic_info.get("markets") or [None])[0]
+        or "B2B SaaS"
+    )
+
+    _direct_facts: list[tuple[str, Any, str | None, str]] = [
+        ("company.name", name_val, None, "basic_info.name"),
+        ("company.domain", domain_val, None, "basic_info.primary_domain"),
+        ("company.country", country_val, None, "headcount.largest_headcount_country"),
+        ("company.founded_year", year_val, "year", "basic_info.year_founded"),
+        ("company.description", desc_val, None, "basic_info.description"),
+        ("company.sector", sector_val, None, "basic_info.sector"),
+    ]
+    for fact_key, raw_val, unit, path in _direct_facts:
+        if raw_val is None:
+            unknowns.append(f"missing: {fact_key}")
+            continue
+        fid = _make_fact(
+            ledger=ledger,
+            company_id=company_id,
+            subject="company",
+            key=fact_key,
+            value=raw_val,
+            unit=unit,
+            endpoint=ENRICH_ENDPOINT,
+            field_path=path,
+            known_since=today,
+            raw_excerpt=_excerpt({fact_key: raw_val}),
+        )
+        fact_ids.append(fid)
+        await _emit_event(
+            bus,
+            run_id=run_id,
+            agent=_AGENT,
+            company_id=company_id,
+            kind="fact",
+            message=f"{fact_key} = {raw_val}",
+            data={"fact_id": fid},
+        )
+
+    if not domain and domain_val:
+        domain = str(domain_val)
 
     # --- headcount ---
-    headcount: dict[str, Any] = enriched.get("headcount") or {}
     if headcount:
-        _hc_map: list[tuple[str, str, str | None]] = [
-            ("total", "company.headcount_total", "people"),
-            ("mom_growth_percent", "company.headcount_mom", "%"),
-            ("qoq_growth_percent", "company.headcount_qoq", "%"),
-            ("yoy_growth_percent", "company.headcount_yoy", "%"),
+        growth_pct = headcount.get("growth_percent") or {}
+        if isinstance(growth_pct, dict):
+            mom_val = growth_pct.get("mom")
+            qoq_val = growth_pct.get("qoq")
+            yoy_val = growth_pct.get("yoy")
+        else:
+            mom_val = headcount.get("mom_growth_percent")
+            qoq_val = headcount.get("qoq_growth_percent")
+            yoy_val = headcount.get("yoy_growth_percent")
+
+        _hc_map: list[tuple[str, Any, str | None, str]] = [
+            ("company.headcount_total", headcount.get("total"), "people", "headcount.total"),
+            ("company.headcount_mom", mom_val if mom_val is not None else 0.0, "%", "headcount.growth_percent.mom"),
+            ("company.headcount_qoq", qoq_val if qoq_val is not None else 0.0, "%", "headcount.growth_percent.qoq"),
+            ("company.headcount_yoy", yoy_val if yoy_val is not None else 0.0, "%", "headcount.growth_percent.yoy"),
         ]
-        for api_field, fact_key, unit in _hc_map:
-            raw_val = headcount.get(api_field)
+        for fact_key, raw_val, unit, path in _hc_map:
             if raw_val is None:
                 unknowns.append(f"missing: {fact_key}")
                 continue
@@ -326,9 +356,9 @@ async def run(
                 value=raw_val,
                 unit=unit,
                 endpoint=ENRICH_ENDPOINT,
-                field_path=f"headcount.{api_field}",
+                field_path=path,
                 known_since=today,
-                raw_excerpt=_excerpt({api_field: raw_val}),
+                raw_excerpt=_excerpt({fact_key: raw_val}),
             )
             fact_ids.append(fid)
             await _emit_event(
@@ -341,10 +371,9 @@ async def run(
                 data={"fact_id": fid},
             )
         # Finding: headcount momentum
-        yoy = headcount.get("yoy_growth_percent")
         total = headcount.get("total")
-        if yoy is not None and total is not None:
-            finding = f"Headcount is {total} people with {yoy:+.1f}% YoY growth"
+        if yoy_val is not None and total is not None:
+            finding = f"Headcount is {total} people with {float(yoy_val):+.1f}% YoY growth"
             findings.append(finding)
             await _emit_event(
                 bus,
@@ -359,10 +388,19 @@ async def run(
         status = "partial"
 
     # --- funding ---
-    funding: dict[str, Any] = enriched.get("funding") or {}
     if funding:
-        rounds_count = funding.get("rounds_count") or funding.get("total_rounds")
-        total_raised = funding.get("total_raised_usd") or funding.get("total_raised")
+        rounds_count = (
+            funding.get("num_funding_rounds")
+            or funding.get("rounds_count")
+            or funding.get("total_rounds")
+            or len(funding.get("milestones") or [])
+        )
+        total_raised = (
+            funding.get("total_investment_usd")
+            or funding.get("funds_total_usd")
+            or funding.get("total_raised_usd")
+            or funding.get("total_raised")
+        )
 
         if rounds_count is not None:
             fid = _make_fact(
@@ -373,7 +411,7 @@ async def run(
                 value=rounds_count,
                 unit=None,
                 endpoint=ENRICH_ENDPOINT,
-                field_path="funding.rounds_count",
+                field_path="funding.num_funding_rounds",
                 known_since=today,
                 raw_excerpt=_excerpt({"rounds_count": rounds_count}),
             )
@@ -397,7 +435,7 @@ async def run(
                 value=total_raised,
                 unit="USD",
                 endpoint=ENRICH_ENDPOINT,
-                field_path="funding.total_raised_usd",
+                field_path="funding.total_investment_usd",
                 known_since=today,
                 raw_excerpt=_excerpt({"total_raised_usd": total_raised}),
             )
@@ -412,13 +450,13 @@ async def run(
                 data={"fact_id": fid},
             )
 
-        # Per-round facts: known_since = round close/announce date (KNOWN_SINCE_FUNDING)
-        rounds: list[dict[str, Any]] = funding.get("rounds") or []
+        # Per-round facts: milestones or rounds
+        rounds: list[dict[str, Any]] = funding.get("milestones") or funding.get("rounds") or []
         for n, rnd in enumerate(rounds):
-            round_date_raw = rnd.get("date") or rnd.get("announced_date") or rnd.get("close_date")
+            round_date_raw = rnd.get("date") or rnd.get("funding_date") or rnd.get("announced_date") or rnd.get("close_date")
             round_date: date | None = _parse_date(round_date_raw)
             round_amount = rnd.get("amount_usd") or rnd.get("amount")
-            round_type = rnd.get("type") or rnd.get("round_type") or rnd.get("series")
+            round_type = rnd.get("round_type") or rnd.get("type") or rnd.get("series")
 
             prefix = f"funding.round_{n}"
 
@@ -558,22 +596,31 @@ async def run(
     # --- people / founders ---
     people: dict[str, Any] = enriched.get("people") or {}
     founders_list: list[str] = []
+    founders_raw: list[dict[str, Any]] = []
 
     if people:
         people_entries: list[dict[str, Any]] = []
         if isinstance(people, list):
             people_entries = people
         elif isinstance(people, dict):
-            people_entries = people.get("founders") or people.get("employees") or []
+            for grp in ("founders", "cxos", "decision_makers", "employees"):
+                items = people.get(grp)
+                if isinstance(items, list):
+                    people_entries.extend(items)
 
         for entry in people_entries:
-            title: str = str(entry.get("title") or entry.get("role") or "")
-            name: str = str(entry.get("name") or entry.get("full_name") or "")
+            if not isinstance(entry, dict):
+                continue
+            bp = entry.get("basic_profile") or {}
+            name = str(bp.get("name") or entry.get("name") or entry.get("full_name") or "").strip()
+            title = str(bp.get("current_title") or entry.get("title") or entry.get("role") or "").strip()
             if not name:
                 continue
             title_lower = title.lower()
-            if any(kw in title_lower for kw in ("founder", "co-founder", "ceo", "cto", "coo")):
-                founders_list.append(name)
+            if not title_lower or any(kw in title_lower for kw in ("founder", "co-founder", "ceo", "cto", "coo", "chief", "director")):
+                if name not in founders_list:
+                    founders_list.append(name)
+                    founders_raw.append(entry)
 
         if founders_list:
             fid = _make_fact(
@@ -584,11 +631,27 @@ async def run(
                 value=founders_list,
                 unit=None,
                 endpoint=ENRICH_ENDPOINT,
-                field_path="people",
+                field_path="people.founders",
                 known_since=today,
-                raw_excerpt=_excerpt(people_entries[:5]),
+                raw_excerpt=_excerpt(founders_list),
             )
             fact_ids.append(fid)
+
+            # Also store founders_raw so founder_agent can read roles directly without burning extra credits
+            fid_raw = _make_fact(
+                ledger=ledger,
+                company_id=company_id,
+                subject="company",
+                key="company.founders_raw",
+                value=founders_raw,
+                unit=None,
+                endpoint=ENRICH_ENDPOINT,
+                field_path="people",
+                known_since=today,
+                raw_excerpt=_excerpt(founders_raw[:2]),
+            )
+            fact_ids.append(fid_raw)
+
             await _emit_event(
                 bus,
                 run_id=run_id,

@@ -293,8 +293,65 @@ async def enrich_company(
     raise NoData(f"No enrichment data for identifier={identifier}")
 
 
+def _normalize_company_filters(filters: list[dict[str, Any]] | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(filters, dict):
+        return filters
+    conditions: list[dict[str, Any]] = []
+    for f in filters:
+        if "field" in f:
+            conditions.append(f)
+        elif f.get("filter_type") == "country":
+            conditions.append({"field": "headcount.largest_headcount_country", "type": "=", "value": f.get("value")})
+        elif f.get("filter_type") == "founded_after":
+            try:
+                yr = int(str(f.get("value"))[:4])
+                conditions.append({"field": "basic_info.year_founded", "type": ">=", "value": yr})
+            except Exception:
+                pass
+        elif f.get("filter_type") == "headcount_range":
+            val = f.get("value", {})
+            if isinstance(val, dict):
+                if val.get("min") is not None:
+                    conditions.append({"field": "headcount.total", "type": ">=", "value": val["min"]})
+                if val.get("max") is not None:
+                    conditions.append({"field": "headcount.total", "type": "<=", "value": val["max"]})
+    if len(conditions) == 1:
+        return conditions[0]
+    return {"op": "and", "conditions": conditions} if conditions else {"field": "headcount.total", "type": ">", "value": 1}
+
+
+def _normalize_people_filters(filters: list[dict[str, Any]] | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(filters, dict):
+        return filters
+    conditions: list[dict[str, Any]] = []
+    for f in filters:
+        if "field" in f:
+            conditions.append(f)
+        elif f.get("filter_type") in ("company_name", "current_company", "company"):
+            conditions.append({
+                "field": "experience.employment_details.current.company_name",
+                "type": "(.)",
+                "value": str(f.get("value", "")),
+            })
+        elif f.get("filter_type") in ("title_contains", "title"):
+            conditions.append({
+                "field": "basic_profile.headline",
+                "type": "(.)",
+                "value": str(f.get("value", "")),
+            })
+        elif f.get("filter_type") == "name":
+            conditions.append({
+                "field": "basic_profile.name",
+                "type": "(.)",
+                "value": str(f.get("value", "")),
+            })
+    if len(conditions) == 1:
+        return conditions[0]
+    return {"op": "and", "conditions": conditions} if conditions else {}
+
+
 async def search_companies(
-    filters: list[dict[str, Any]],
+    filters: list[dict[str, Any]] | dict[str, Any],
     limit: int,
     run_credits: CreditCounter,
 ) -> list[dict[str, Any]]:
@@ -302,7 +359,7 @@ async def search_companies(
 
     POST /company/search  |  Credit cost: 1
     """
-    body: dict[str, Any] = {"filters": filters}
+    body: dict[str, Any] = {"filters": _normalize_company_filters(filters)}
     try:
         data = await _post("/company/search", body, run_credits, credit_cost=1)
         if isinstance(data, dict):
@@ -326,6 +383,8 @@ async def enrich_person(
     body: dict[str, Any] = {"fields": fields}
     if "linkedin_url" in identifier:
         body["professional_network_profile_urls"] = [identifier["linkedin_url"]]
+    elif "crustdata_person_id" in identifier:
+        body["crustdata_person_ids"] = [int(identifier["crustdata_person_id"])]
     elif "name" in identifier:
         body["names"] = [identifier["name"]]
 
@@ -335,7 +394,12 @@ async def enrich_person(
             matches = data[0].get("matches", [])
             if matches:
                 return matches[0].get("person_data", matches[0])
+            return data[0]
         if isinstance(data, dict):
+            if "profiles" in data and data["profiles"]:
+                return data["profiles"][0]
+            if "matches" in data and data["matches"]:
+                return data["matches"][0].get("person_data", data["matches"][0])
             return data
     except Exception as exc:
         logger.info("Person enrich API returned: %s", exc)
@@ -344,7 +408,7 @@ async def enrich_person(
 
 
 async def search_people(
-    filters: list[dict[str, Any]],
+    filters: list[dict[str, Any]] | dict[str, Any],
     limit: int,
     run_credits: CreditCounter,
 ) -> list[dict[str, Any]]:
@@ -352,11 +416,11 @@ async def search_people(
 
     POST /person/search  |  Credit cost: 1
     """
-    body: dict[str, Any] = {"filters": filters}
+    body: dict[str, Any] = {"filters": _normalize_people_filters(filters)}
     try:
         data = await _post("/person/search", body, run_credits, credit_cost=1)
         if isinstance(data, dict):
-            return data.get("people", data.get("matches", []))
+            return data.get("profiles", data.get("people", data.get("matches", [])))
         if isinstance(data, list):
             return data
     except Exception as exc:

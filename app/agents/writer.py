@@ -192,8 +192,16 @@ FACT INVENTORY (Use only these Fact IDs):
 {facts_context}
 {challenges_context}
 
-Return a JSON object with sections: 'summary', 'founders', 'signals', 'risks', 'bear_case'.
-Each section contains a list of sentences, where each sentence has 'template' and 'fact_ids'.
+Return a JSON object with a 'sections' key:
+{{
+  "sections": {{
+    "summary": [{{"template": "...", "fact_ids": ["..."]}}],
+    "founders": [{{"template": "...", "fact_ids": ["..."]}}],
+    "signals": [{{"template": "...", "fact_ids": ["..."]}}],
+    "risks": [{{"template": "...", "fact_ids": ["..."]}}],
+    "bear_case": [{{"template": "...", "fact_ids": ["..."]}}]
+  }}
+}}
 """
 
     schema = {
@@ -266,7 +274,7 @@ Each section contains a list of sentences, where each sentence has 'template' an
 
     try:
         data = await call_json(prompt, schema=schema, run_id=run_id)
-        raw_sections = data.get("sections", {})
+        raw_sections = data.get("sections") if isinstance(data.get("sections"), dict) else data
         sections: dict[str, list[MemoSentence]] = {}
 
         for sec_name, sentences in raw_sections.items():
