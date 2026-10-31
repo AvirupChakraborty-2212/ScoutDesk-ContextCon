@@ -16,16 +16,18 @@ from app.models import Fact, Memo, MemoSentence
 # Regex to find {<fact_id>} placeholders inside a template (supports F12, F1, UUIDs, etc.)
 _PLACEHOLDER_RE = re.compile(r"\{([A-Za-z0-9_-]+)\}")
 
-# Regex to find standalone number-like tokens NOT preceded by { or part of a placeholder.
+# Regex to find standalone number-like tokens NOT preceded by { (placeholder guard handled separately).
 # Matches integers, decimals, commas-as-thousands, and optional unit suffixes.
 _NUMBER_TOKEN_RE = re.compile(
-    r"(?<!\{F\d{0,9})"              # not preceded by {F…
     r"\b"
     r"(\d[\d,]*(?:\.\d+)?)"        # digits with optional commas/decimal
     r"(?:\s*(?:K|M|B|lakh|crore|%))?"  # optional suffix
     r"\b",
     re.IGNORECASE,
 )
+
+# Regex to match a placeholder like {F12} so we can exclude matches within them
+_PLACEHOLDER_SPAN_RE = re.compile(r"\{[A-Za-z0-9_-]+\}")
 
 # Suffixes and their multipliers for parse_number
 _SUFFIX_MULTIPLIERS: dict[str, float] = {

@@ -1,5 +1,7 @@
 """Tests for verifier.py — citation checks, number matching, direction words, and as_of leakage."""
 
+from __future__ import annotations
+
 from datetime import date, datetime, timezone
 
 from app.ledger import FactLedger

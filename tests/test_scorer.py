@@ -1,5 +1,7 @@
 """Tests for scorer.py — pure code thesis scoring and confidence calculation."""
 
+from __future__ import annotations
+
 from datetime import date, datetime, timezone
 
 from app.models import Fact

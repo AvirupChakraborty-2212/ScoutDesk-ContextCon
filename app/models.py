@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -19,12 +19,12 @@ class Fact(BaseModel):
     company_id: str                             # crustdata company id or domain
     subject: str                                # "company" | "founder:<n>" | "competitor:<domain>"
     key: str                                    # "funding.round", "founder.prior_employer", …
-    value: float | int | str | bool | None
-    unit: str | None = None                     # "%", "INR", "USD", "people", "months", "date"
+    value: Union[float, int, str, bool, None]
+    unit: Optional[str] = None                  # "%", "INR", "USD", "people", "months", "date"
     endpoint: str                               # "company/enrich" | "derived"
     field_path: str                             # "headcount.growth_percent.yoy"
     derived_from: list[str] = Field(default_factory=list)  # fact ids, for derived facts
-    known_since: date | None = None             # when this fact became true/public; None = unknown
+    known_since: Optional[date] = None          # when this fact became true/public; None = unknown
     fetched_at: datetime
     raw_excerpt: str                            # small JSON snippet for the citation popover
 
@@ -94,7 +94,7 @@ class Challenge(BaseModel):
     sentence_index: tuple[str, int]             # (section_name, index)
     objection: str
     counter_fact_ids: list[str] = Field(default_factory=list)
-    requested_lookup: str | None = None
+    requested_lookup: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +111,7 @@ class Verdict(BaseModel):
     memo: Memo
     rationale: str
     flags: list[str] = Field(default_factory=list)
-    check_size: float | None = None             # from the allocator, if enabled
+    check_size: Optional[float] = None             # from the allocator, if enabled
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +122,7 @@ class RunwayReport(BaseModel):
     """Cash-out risk estimate for a portfolio company (proxy, clearly labelled)."""
 
     company_id: str
-    est_months_left: float | None
+    est_months_left: Optional[float]
     level: Literal["ok", "watch", "alert", "unknown"]
     signals: list[str]                          # each cites fact ids
     assumptions: list[str]                      # "burn = headcount × $2,500/month (India)"
@@ -138,7 +138,7 @@ class BacktestCase(BaseModel):
     company_id: str
     decision: str
     score: float
-    outcome_raised_within_horizon: bool | None  # from funding rounds dated after as_of
+    outcome_raised_within_horizon: Optional[bool]  # from funding rounds dated after as_of
     outcome_fact_ids: list[str] = Field(default_factory=list)
 
 
@@ -166,7 +166,7 @@ class Event(BaseModel):
     run_id: str
     ts: datetime
     agent: str
-    company_id: str | None = None
+    company_id: Optional[str] = None
     kind: Literal[
         "start", "call", "fact", "firewall", "finding", "challenge",
         "verify", "verdict", "runway", "backtest",

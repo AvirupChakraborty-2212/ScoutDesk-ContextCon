@@ -1,5 +1,7 @@
 """Tests for ledger.py — FactLedger and time-firewall LedgerView."""
 
+from __future__ import annotations
+
 from datetime import date, datetime, timezone
 
 from app.ledger import (
