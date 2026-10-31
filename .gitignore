@@ -1,0 +1,13 @@
+.env
+.cache/
+runs/
+__pycache__/
+*.pyc
+.DS_Store
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+SCOUTDESK_*.md

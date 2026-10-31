@@ -1,0 +1,15 @@
+name: "Pre-seed/seed India B2B: back operator founders early"
+stage_focus: pre_round            # pre_round | seed | series_a
+geographies: [India]
+sectors: [fintech infrastructure, developer tools, B2B SaaS]
+company: {founded_after: 2023-01-01, headcount: {min: 2, max: 40}, max_rounds: 0}
+founders:
+  operator_signal: {min_prior_company_headcount: 500, min_years: 3}
+  repeat_founder_bonus: true
+weights: {founders: 0.45, thesis_fit: 0.25, signals: 0.20, momentum: 0.10}
+verdict_thresholds: {back: 70, watch: 50}
+min_confidence_for_auto_verdict: 0.6
+runway:
+  monthly_cost_per_head_usd: {India: 2500, US: 15000, default: 6000}
+  alert_months_left: 6
+

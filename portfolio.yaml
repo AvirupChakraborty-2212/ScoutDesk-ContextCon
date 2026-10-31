@@ -1,0 +1,7 @@
+# Portfolio companies to monitor for runway risk.
+# Used by the Runway Watch agent.
+companies:
+  # - domain: example.com
+  #   name: Example Inc
+  #   country: India
+

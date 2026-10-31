@@ -1,0 +1,3 @@
+# Demo companies: strong fit, clear pass, ambiguous, sparse, portfolio/runway
+# One domain per line. Fill these in before 10:30.
+

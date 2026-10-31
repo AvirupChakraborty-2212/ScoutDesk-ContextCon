@@ -1,0 +1,15 @@
+name: "US AI/ML seed: back technical founders building infrastructure"
+stage_focus: seed
+geographies: [US]
+sectors: [artificial intelligence, machine learning, AI infrastructure, developer tools]
+company: {founded_after: 2022-01-01, headcount: {min: 5, max: 100}, max_rounds: 1}
+founders:
+  operator_signal: {min_prior_company_headcount: 500, min_years: 2}
+  repeat_founder_bonus: true
+weights: {founders: 0.40, thesis_fit: 0.25, signals: 0.20, momentum: 0.15}
+verdict_thresholds: {back: 70, watch: 50}
+min_confidence_for_auto_verdict: 0.6
+runway:
+  monthly_cost_per_head_usd: {India: 2500, US: 15000, default: 6000}
+  alert_months_left: 6
+

@@ -1,0 +1,4 @@
+# Backtest cohort: 15-30 companies that were pre-round as of the as_of date.
+# Commit this file BEFORE running the backtest. No cherry-picking.
+# One domain per line.
+
