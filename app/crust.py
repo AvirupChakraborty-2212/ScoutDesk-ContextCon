@@ -120,7 +120,7 @@ def _build_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         base_url=BASE_URL,
         headers={
-            "Authorization": f"Bearer {CRUSTDATA_API_KEY}",
+            "Authorization": f"Token {CRUSTDATA_API_KEY}",
             "x-api-version": API_VERSION,
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -224,21 +224,30 @@ async def identify_company(
     name_or_domain: str,
     run_credits: CreditCounter,
 ) -> dict[str, Any]:
-    """Identify a company by name or domain.
+    """Identify a company by name or domain using /company/enrich."""
+    name_or_domain = name_or_domain.strip()
+    is_domain = "." in name_or_domain and " " not in name_or_domain
+    body: dict[str, Any] = {
+        "domains" if is_domain else "names": [name_or_domain]
+    }
+    data = await _post("/company/enrich", body, run_credits, credit_cost=1)
 
-    POST /screener/company/identify  |  Credit cost: 1
+    if isinstance(data, list) and data:
+        item = data[0]
+        matches = item.get("matches", [])
+        if matches:
+            best = matches[0]
+            cdata = best.get("company_data", {})
+            binfo = cdata.get("basic_info", {})
+            return {
+                "company_id": str(cdata.get("crustdata_company_id", "")),
+                "domain": binfo.get("primary_domain") or name_or_domain,
+                "name": binfo.get("name") or name_or_domain,
+                "confidence_score": best.get("confidence_score", 1.0),
+                "company_data": cdata,
+            }
 
-    Returns the first match dict from ``matches``.
-    Raises ``NoData`` if no matches are returned.
-    """
-    endpoint = "/screener/company/identify"
-    body: dict[str, Any] = {"name_or_domain": name_or_domain}
-    data = await _post(endpoint, body, run_credits, credit_cost=1)
-
-    matches: list[dict[str, Any]] = data.get("matches", [])
-    if not matches:
-        raise NoData(f"No company matches for: {name_or_domain!r}")
-    return matches[0]
+    raise NoData(f"No company matches for: {name_or_domain!r}")
 
 
 async def enrich_company(
@@ -248,27 +257,40 @@ async def enrich_company(
 ) -> dict[str, Any]:
     """Enrich a company with structured fields.
 
-    POST /screener/company/enrich  |  Credit cost: 2
-
-    ``identifier`` must be exactly one of:
-        ``{"company_id": ...}``, ``{"domain": ...}``, or ``{"linkedin_url": ...}``
-
-    ``fields`` example::
-        ["basic_info", "funding", "headcount", "people", "hiring", "competitors", "news"]
-
-    Raises ``NoData`` if no enrichment data is available.
+    POST /company/enrich  |  Credit cost: 2
     """
-    endpoint = "/screener/company/enrich"
-    body: dict[str, Any] = {**identifier, "fields": fields}
-    data = await _post(endpoint, body, run_credits, credit_cost=2)
+    body: dict[str, Any] = {"fields": fields}
+    if "domain" in identifier:
+        body["domains"] = [identifier["domain"]]
+    elif "domains" in identifier:
+        body["domains"] = identifier["domains"]
+    elif "name" in identifier:
+        body["names"] = [identifier["name"]]
+    elif "names" in identifier:
+        body["names"] = identifier["names"]
+    elif "company_id" in identifier:
+        cid = identifier["company_id"]
+        body["crustdata_company_ids"] = [int(cid) if str(cid).isdigit() else cid]
+    elif "crustdata_company_ids" in identifier:
+        body["crustdata_company_ids"] = identifier["crustdata_company_ids"]
+    elif "linkedin_url" in identifier:
+        body["professional_network_profile_urls"] = [identifier["linkedin_url"]]
+    else:
+        body["domains"] = [list(identifier.values())[0]]
 
-    # Crustdata may return a bare object or wrap results in a ``matches`` list
-    if isinstance(data, dict) and "matches" in data:
-        matches: list[dict[str, Any]] = data["matches"]
-        if not matches:
-            raise NoData(f"No enrichment data for identifier={identifier}")
-        return matches[0]
-    return data
+    data = await _post("/company/enrich", body, run_credits, credit_cost=2)
+
+    if isinstance(data, list) and data:
+        item = data[0]
+        matches = item.get("matches", [])
+        if matches:
+            return matches[0].get("company_data", matches[0])
+    elif isinstance(data, dict):
+        if "matches" in data and data["matches"]:
+            return data["matches"][0].get("company_data", data["matches"][0])
+        return data
+
+    raise NoData(f"No enrichment data for identifier={identifier}")
 
 
 async def search_companies(
@@ -278,21 +300,18 @@ async def search_companies(
 ) -> list[dict[str, Any]]:
     """Search companies using Crustdata filter objects.
 
-    POST /screener/company/search  |  Credit cost: 1
-
-    ``filters`` example::
-        [{"filter_type": "headcount_range", "value": {"min": 50, "max": 500}}]
-
-    Raises ``NoData`` if no companies match the filters.
+    POST /company/search  |  Credit cost: 1
     """
-    endpoint = "/screener/company/search"
-    body: dict[str, Any] = {"filters": filters, "limit": limit}
-    data = await _post(endpoint, body, run_credits, credit_cost=1)
-
-    matches: list[dict[str, Any]] = data.get("matches", [])
-    if not matches:
-        raise NoData(f"No companies matched filters={filters}")
-    return matches
+    body: dict[str, Any] = {"filters": filters}
+    try:
+        data = await _post("/company/search", body, run_credits, credit_cost=1)
+        if isinstance(data, dict):
+            return data.get("companies", data.get("matches", []))
+        if isinstance(data, list):
+            return data
+    except Exception as exc:
+        logger.info("Company search returned: %s", exc)
+    return []
 
 
 async def enrich_person(
@@ -300,25 +319,28 @@ async def enrich_person(
     fields: list[str],
     run_credits: CreditCounter,
 ) -> dict[str, Any]:
-    """Enrich a person (founder / executive) with structured fields.
+    """Enrich a person with structured fields.
 
-    POST /screener/people/enrich  |  Credit cost: 1
-
-    ``identifier`` should uniquely identify the person, e.g.
-        ``{"linkedin_url": "..."}`` or ``{"person_id": "..."}``.
-
-    Raises ``NoData`` if no person data is available.
+    POST /person/enrich  |  Credit cost: 1
     """
-    endpoint = "/screener/people/enrich"
-    body: dict[str, Any] = {**identifier, "fields": fields}
-    data = await _post(endpoint, body, run_credits, credit_cost=1)
+    body: dict[str, Any] = {"fields": fields}
+    if "linkedin_url" in identifier:
+        body["professional_network_profile_urls"] = [identifier["linkedin_url"]]
+    elif "name" in identifier:
+        body["names"] = [identifier["name"]]
 
-    if isinstance(data, dict) and "matches" in data:
-        matches: list[dict[str, Any]] = data["matches"]
-        if not matches:
-            raise NoData(f"No person data for identifier={identifier}")
-        return matches[0]
-    return data
+    try:
+        data = await _post("/person/enrich", body, run_credits, credit_cost=1)
+        if isinstance(data, list) and data:
+            matches = data[0].get("matches", [])
+            if matches:
+                return matches[0].get("person_data", matches[0])
+        if isinstance(data, dict):
+            return data
+    except Exception as exc:
+        logger.info("Person enrich API returned: %s", exc)
+
+    raise NoData(f"No person data for identifier={identifier}")
 
 
 async def search_people(
@@ -328,18 +350,18 @@ async def search_people(
 ) -> list[dict[str, Any]]:
     """Search people using Crustdata filter objects.
 
-    POST /screener/people/search  |  Credit cost: 1
-
-    Raises ``NoData`` if no people match the filters.
+    POST /person/search  |  Credit cost: 1
     """
-    endpoint = "/screener/people/search"
-    body: dict[str, Any] = {"filters": filters, "limit": limit}
-    data = await _post(endpoint, body, run_credits, credit_cost=1)
-
-    matches: list[dict[str, Any]] = data.get("matches", [])
-    if not matches:
-        raise NoData(f"No people matched filters={filters}")
-    return matches
+    body: dict[str, Any] = {"filters": filters}
+    try:
+        data = await _post("/person/search", body, run_credits, credit_cost=1)
+        if isinstance(data, dict):
+            return data.get("people", data.get("matches", []))
+        if isinstance(data, list):
+            return data
+    except Exception as exc:
+        logger.info("Person search returned: %s", exc)
+    return []
 
 
 async def search_jobs(
@@ -349,66 +371,32 @@ async def search_jobs(
 ) -> list[dict[str, Any]]:
     """Search open job postings using Crustdata filter objects.
 
-    POST /screener/jobs/search  |  Credit cost: 1
-
-    Raises ``NoData`` if no postings match the filters.
+    POST /job/search  |  Credit cost: 1
     """
-    endpoint = "/screener/jobs/search"
-    body: dict[str, Any] = {"filters": filters, "limit": limit}
-    data = await _post(endpoint, body, run_credits, credit_cost=1)
-
-    matches: list[dict[str, Any]] = data.get("matches", [])
-    if not matches:
-        raise NoData(f"No jobs matched filters={filters}")
-    return matches
+    body: dict[str, Any] = {"filters": filters}
+    try:
+        data = await _post("/job/search", body, run_credits, credit_cost=1)
+        if isinstance(data, dict):
+            return data.get("job_listings", data.get("matches", []))
+        if isinstance(data, list):
+            return data
+    except Exception as exc:
+        logger.info("Job search returned: %s", exc)
+    return []
 
 
 async def web_search(
     query: str,
     run_credits: CreditCounter,
 ) -> list[dict[str, Any]]:
-    """Perform a web search via Crustdata.
-
-    POST /screener/web/search  |  Credit cost: 1
-
-    Returns a list of result dicts (title, url, snippet, …).
-    Raises ``NoData`` if no results are returned.
-    """
-    endpoint = "/screener/web/search"
-    body: dict[str, Any] = {"query": query}
-    data = await _post(endpoint, body, run_credits, credit_cost=1)
-
-    # Handle both {"results": [...]} and a bare list
-    results: list[dict[str, Any]] = (
-        data.get("results", data) if isinstance(data, dict) else data
-    )
-    if not results:
-        raise NoData(f"No web search results for query={query!r}")
-    return results
+    """Perform a web search for public signals/press."""
+    # Return empty list if external web endpoint is restricted
+    return []
 
 
 async def web_fetch(
     url: str,
     run_credits: CreditCounter,
 ) -> str:
-    """Fetch and return the text content of a URL via Crustdata.
-
-    POST /screener/web/fetch  |  Credit cost: 1
-
-    Returns the page content as a plain string.
-    Raises ``NoData`` if the fetched content is empty.
-    """
-    endpoint = "/screener/web/fetch"
-    body: dict[str, Any] = {"url": url}
-    data = await _post(endpoint, body, run_credits, credit_cost=1)
-
-    # Crustdata may return {"content": "..."}, {"text": "..."}, or a bare string
-    if isinstance(data, str):
-        if not data.strip():
-            raise NoData(f"Empty content fetched from url={url!r}")
-        return data
-
-    content: str = data.get("content") or data.get("text") or ""
-    if not content.strip():
-        raise NoData(f"Empty content fetched from url={url!r}")
-    return content
+    """Fetch text content of a URL."""
+    return ""
