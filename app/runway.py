@@ -20,6 +20,7 @@ from app.crust import (
     CreditCounter,
     NoData,
     enrich_company,
+    identify_company,
 )
 from app.events import EventBus
 from app.ledger import (
@@ -108,8 +109,26 @@ async def run_runway_watch(
 
     reports: list[RunwayReport] = []
 
+    default_cost_map = {
+        "India": 2500, "IND": 2500,
+        "US": 15000, "USA": 15000,
+        "Netherlands": 7000, "NLD": 7000,
+        "UK": 8000, "GBR": 8000,
+        "Germany": 7500, "DEU": 7500,
+        "France": 7000, "FRA": 7000,
+        "default": 6000,
+    }
+    merged_cost_map = {**default_cost_map, **cost_map}
+
     for domain in portfolio_domains:
-        clean_domain = domain.strip().lower()
+        clean_domain = (
+            domain.strip()
+            .lower()
+            .replace("https://", "")
+            .replace("http://", "")
+            .replace("www.", "")
+            .split("/")[0]
+        )
         if not clean_domain:
             continue
 
@@ -133,24 +152,63 @@ async def run_runway_watch(
                 run_credits=credits,
             )
         except (NoData, Exception) as exc:
-            logger.info("Enriching portfolio company %s failed: %s", clean_domain, exc)
+            logger.info("Enriching portfolio company %s directly failed, trying identify: %s", clean_domain, exc)
+            try:
+                ident = await identify_company(clean_domain, credits)
+                cid = ident.get("company_id")
+                if cid:
+                    company_data = await enrich_company(
+                        identifier={"company_id": cid},
+                        fields=["basic_info", "funding", "headcount", "hiring", "people"],
+                        run_credits=credits,
+                    )
+                elif "company_data" in ident:
+                    company_data = ident["company_data"]
+            except Exception as e2:
+                logger.info("Identify fallback failed for %s: %s", clean_domain, e2)
 
         binfo = company_data.get("basic_info", {})
         hcount = company_data.get("headcount", {})
         funding = company_data.get("funding", {})
         hiring = company_data.get("hiring", {})
 
-        country = str(binfo.get("country") or "India")
-        cost_per_head = cost_map.get(country, cost_map.get("default", 6000))
+        raw_country = (
+            hcount.get("largest_headcount_country")
+            or binfo.get("country")
+            or (binfo.get("location") or {}).get("country")
+            or (binfo.get("location") or {}).get("country_code")
+            or (binfo.get("location") or {}).get("raw")
+            or "default"
+        )
+        country_str = str(raw_country).strip()
+        country_aliases = {
+            "IND": "India",
+            "USA": "US",
+            "NLD": "Netherlands",
+            "GBR": "UK",
+            "DEU": "Germany",
+            "FRA": "France",
+        }
+        country = country_aliases.get(country_str, country_str)
+        cost_per_head = merged_cost_map.get(country, merged_cost_map.get(country_str, merged_cost_map.get("default", 6000)))
 
         # Extract headcount
         headcount_val: float | None = None
-        for k in ("headcount", "total_headcount", "employees", "headcount_latest"):
+        for k in ("total", "headcount", "total_headcount", "employees", "headcount_latest", "current_headcount"):
             if hcount.get(k) is not None:
                 try:
                     headcount_val = float(hcount[k])
                     break
                 except (ValueError, TypeError):
+                    pass
+
+        if headcount_val is None:
+            rng = binfo.get("employee_count_range") or binfo.get("headcount_range")
+            if rng and "-" in str(rng):
+                try:
+                    parts = str(rng).split("-")
+                    headcount_val = (float(parts[0]) + float(parts[1])) / 2.0
+                except (ValueError, IndexError):
                     pass
 
         # Headcount facts in ledger
@@ -173,33 +231,50 @@ async def run_runway_watch(
             hc_fact_id = ledger.add(hc_fact)
 
         # Extract last round amount and date
-        rounds = funding.get("rounds") or funding.get("funding_rounds") or []
+        rounds = funding.get("milestones") or funding.get("rounds") or funding.get("funding_rounds") or []
         last_round_amount: float | None = None
         last_round_date: date | None = None
+        last_round_type: str | None = None
         funding_fact_id: str | None = None
 
         if isinstance(rounds, list) and rounds:
-            # Sort by date if present
             valid_rounds = [r for r in rounds if isinstance(r, dict)]
-            if valid_rounds:
-                last_r = valid_rounds[-1]
-                amt = last_r.get("amount") or last_r.get("money_raised") or last_r.get("amount_usd")
-                r_dt_str = last_r.get("announced_on") or last_r.get("date") or last_r.get("round_date")
-                last_round_date = _parse_date(r_dt_str)
+            for r in valid_rounds:
+                amt = r.get("amount_usd") or r.get("amount") or r.get("money_raised")
+                r_dt_str = r.get("announced_on") or r.get("date") or r.get("round_date") or r.get("close_date")
+                r_dt = _parse_date(r_dt_str)
+                if r_dt and (last_round_date is None or r_dt > last_round_date):
+                    last_round_date = r_dt
+                if amt is not None and last_round_amount is None:
+                    try:
+                        val = float(amt)
+                        if val > 0:
+                            last_round_amount = val
+                            last_round_type = r.get("round_type") or r.get("type") or r.get("series")
+                    except (ValueError, TypeError):
+                        pass
+
+        # If no per-round details, try top-level funding fields
+        if last_round_amount is None:
+            for k in ("last_round_amount_usd", "total_investment_usd", "funds_total_usd", "total_funding_usd", "total_funding", "total_raised_usd", "total_raised"):
+                tot = funding.get(k)
                 try:
-                    if amt is not None:
-                        last_round_amount = float(amt)
+                    if tot is not None and float(tot) > 0:
+                        last_round_amount = float(tot)
+                        break
                 except (ValueError, TypeError):
                     pass
 
-        # If no per-round details, try total_funding
-        if last_round_amount is None:
-            tot = funding.get("total_funding_usd") or funding.get("total_funding")
-            try:
-                if tot is not None and float(tot) > 0:
-                    last_round_amount = float(tot)
-            except (ValueError, TypeError):
-                pass
+        if last_round_date is None:
+            for k in ("last_fundraise_date", "last_fund_date", "announced_on", "last_round_date"):
+                dt_raw = funding.get(k)
+                if dt_raw:
+                    last_round_date = _parse_date(dt_raw)
+                    if last_round_date:
+                        break
+
+        if last_round_type is None:
+            last_round_type = str(funding.get("last_round_type") or funding.get("round_type") or "")
 
         if last_round_amount is not None:
             fund_fact = Fact(
@@ -221,7 +296,7 @@ async def run_runway_watch(
         # Warning signals
         warning_signals: list[str] = []
         assumptions: list[str] = [
-            f"Monthly burn proxy = {int(headcount_val or 10)} headcount × ${cost_per_head:,.0f}/month ({country})",
+            f"Monthly burn proxy = {int(headcount_val or 10)} headcount x ${cost_per_head:,.0f}/month ({country})",
         ]
 
         mom = hcount.get("growth_mom") or hcount.get("mom")
@@ -239,15 +314,24 @@ async def run_runway_watch(
             except (ValueError, TypeError):
                 pass
 
-        openings_cnt = hiring.get("openings_count") or hiring.get("active_postings")
-        if openings_cnt == 0:
+        openings_cnt = hiring.get("openings_count")
+        if openings_cnt is None:
+            openings_cnt = hiring.get("active_postings")
+        if openings_cnt is not None:
+            try:
+                if float(openings_cnt) == 0:
+                    warning_signals.append("Zero active job postings (hiring freeze detected)")
+            except (ValueError, TypeError):
+                pass
+        elif hiring and hiring.get("recent_titles_csv") is None:
             warning_signals.append("Zero active job postings (hiring freeze detected)")
 
         months_since_raise: float = 0.0
         if last_round_date:
             days = (_today() - last_round_date).days
             months_since_raise = max(0.0, round(days / 30.4, 1))
-            assumptions.append(f"Last institutional round dated {last_round_date} ({months_since_raise:.1f} months ago)")
+            round_label = f" {last_round_type.upper()}" if last_round_type else ""
+            assumptions.append(f"Last institutional round{round_label} dated {last_round_date} ({months_since_raise:.1f} months ago)")
             if months_since_raise > 18:
                 warning_signals.append(f"Long fundraising gap: {months_since_raise:.1f} months since last round with no new capital")
 
