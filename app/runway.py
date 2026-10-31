@@ -85,6 +85,8 @@ async def run_runway_watch(
     run_id: str,
 ) -> list[RunwayReport]:
     """Run cash-out risk analysis across portfolio companies."""
+    if run_id not in bus._queues:
+        bus.create_run(run_id)
     await bus.emit(
         Event(
             run_id=run_id,
@@ -305,4 +307,8 @@ async def run_runway_watch(
         )
     )
 
+    try:
+        bus.finish(run_id)
+    except Exception:
+        pass
     return reports

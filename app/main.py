@@ -296,6 +296,7 @@ async def get_backtest(backtest_id: str):
 @app.post("/api/runway")
 async def trigger_runway(req: RunwayRequest):
     run_id = f"runway-{uuid.uuid4().hex[:8]}"
+    global_bus.create_run(run_id)
     domains = req.domains or load_portfolio(PORTFOLIO_PATH)
 
     if not domains:
