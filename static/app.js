@@ -283,9 +283,11 @@ function appendLaneEvent(companyId, ev) {
         lane.countEl.textContent = `${lane.count} ${lane.count === 1 ? 'event' : 'events'}`;
         lane.countEl.hidden = false;
     }
+    const laneStick = (lane.eventsEl.scrollHeight - lane.eventsEl.scrollTop - lane.eventsEl.clientHeight) < 70;
     lane.eventsEl.appendChild(buildEventRow(ev));
-    // Auto-scroll the lane itself so the newest item is visible
-    lane.eventsEl.scrollTop = lane.eventsEl.scrollHeight;
+    if (laneStick) {
+        lane.eventsEl.scrollTop = lane.eventsEl.scrollHeight;
+    }
 }
 
 function setLaneStatus(companyId, status) {
